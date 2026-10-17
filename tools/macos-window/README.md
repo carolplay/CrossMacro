@@ -268,3 +268,17 @@ A calibrated `offset: [dx, dy]` on a `text_target` can route an OCR row label to
 its adjacent button. The final point is still checked against the reference
 window. Keep offsets specific to a verified layout; ambiguous rows stop instead
 of guessing a button.
+
+## Latest recorded free flows
+
+`wos-stamina-meal.json`, `wos-academy-supply.json`, and `wos-alliance-free.json`
+are trial recordings. Their cooldown/empty branches passed a combined 61-step
+CrossMacro replay (129.94s, 99 screenshots, 100 local OCR calls, zero model
+calls). New reward branches have manual and offline predicate evidence, but
+still need a live macro claim. Alliance help is inspection only. Do not count
+these warm-state replays as a second complete daily visit.
+
+The worker needs Pillow for color checks and local enlarged timer crops; optional
+audio matching needs NumPy. Timer-only crops may normalize missing separators
+only when all six digits remain, then validate hours/minutes/seconds and range.
+The original image is reused; no extra capture or repeated click is required.

@@ -1,0 +1,176 @@
+{
+  "name": "WOS — free stamina meal (trial)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "status": "cooldown_replay_verified",
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "feast-open",
+      "action": "click",
+      "point": [
+        289,
+        944
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "after": [
+        "丰盛的招待"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "feast-claim",
+      "action": "click",
+      "point": [
+        573,
+        341
+      ],
+      "before": {
+        "all": [
+          "获取更多",
+          "丰盛的招待",
+          "领取"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              530,
+              325,
+              620,
+              360
+            ],
+            "min": 0.12
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "获取更多",
+          "丰盛的招待",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              530,
+              325,
+              620,
+              360
+            ],
+            "max": 0.08
+          }
+        ]
+      },
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "获取更多",
+          "丰盛的招待",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              530,
+              325,
+              620,
+              360
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "feast-check",
+      "action": "observe",
+      "before": {
+        "all": [
+          "获取更多",
+          "丰盛的招待",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              530,
+              325,
+              620,
+              360
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "feast-close",
+      "action": "click",
+      "point": [
+        645,
+        137
+      ],
+      "before": [
+        "丰盛的招待"
+      ],
+      "after": [
+        "领主档案"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "feast-city",
+      "action": "click",
+      "point": [
+        132,
+        59
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 3
+    }
+  ],
+  "positive_branch": "Manual game claim and offline predicates verified; live macro claim still pending"
+}

@@ -1,0 +1,270 @@
+{
+  "name": "wos-academy-supply (trial)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "status": "cooldown_replay_verified",
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "academy-overview",
+      "action": "click",
+      "point": [
+        109,
+        482
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "城镇",
+        "野外",
+        "日常"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "academy-daily-tab",
+      "action": "click",
+      "point": [
+        402,
+        249
+      ],
+      "before": [
+        "城镇",
+        "野外",
+        "日常"
+      ],
+      "after": [
+        "游历补给"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "academy-enter",
+      "action": "click",
+      "text_target": {
+        "text": "游历补给",
+        "bounds": [
+          150,
+          350,
+          400,
+          600
+        ],
+        "offset": [
+          150,
+          10
+        ],
+        "min_confidence": 0.5
+      },
+      "before": [
+        "游历补给"
+      ],
+      "after": [
+        "无尽的旅途",
+        "天险游历",
+        "雪原游历"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "academy-bag",
+      "action": "click",
+      "point": [
+        569,
+        61
+      ],
+      "before": [
+        "无尽的旅途",
+        "天险游历",
+        "雪原游历"
+      ],
+      "after": [
+        "免费领取",
+        "每日限购",
+        "点击任意空白位置关闭"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "academy-claim",
+      "action": "click",
+      "point": [
+        568,
+        516
+      ],
+      "before": {
+        "all": [
+          "免费领取",
+          "每日限购",
+          "点击任意空白位置关闭",
+          "领取"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              525,
+              500,
+              620,
+              530
+            ],
+            "min": 0.12
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "免费领取",
+          "每日限购",
+          "点击任意空白位置关闭",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              525,
+              500,
+              620,
+              530
+            ],
+            "max": 0.08
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "免费领取",
+          "每日限购",
+          "点击任意空白位置关闭",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              525,
+              500,
+              620,
+              530
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "academy-checked",
+      "action": "observe",
+      "before": {
+        "all": [
+          "免费领取",
+          "每日限购",
+          "点击任意空白位置关闭",
+          "下次补给"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              525,
+              500,
+              620,
+              530
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "academy-close",
+      "action": "click",
+      "point": [
+        668,
+        382
+      ],
+      "before": [
+        "免费领取",
+        "每日限购",
+        "点击任意空白位置关闭"
+      ],
+      "after": [
+        "无尽的旅途",
+        "天险游历",
+        "雪原游历"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "academy-city",
+      "action": "click",
+      "point": [
+        133,
+        59
+      ],
+      "before": [
+        "无尽的旅途",
+        "天险游历",
+        "雪原游历"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    }
+  ],
+  "positive_branch": "Manual game claim and offline predicates verified; live macro claim still pending"
+}

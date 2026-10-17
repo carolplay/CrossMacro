@@ -30,10 +30,12 @@ def normalize(text):
 
 
 class Observation(str):
-    def __new__(cls, text, image_path, ocr_data=None):
+    def __new__(cls, text, image_path, ocr_data=None, ocr_config=None):
         value = super().__new__(cls, text)
         value.image_path = image_path
         value.ocr_data = ocr_data
+        value.ocr_config = ocr_config
+        value.timer_regions = {}
         value.visual_checks = []
         return value
 
@@ -69,6 +71,30 @@ def require_text(text, required):
                 timer_text = '\n'.join(selected)
             timer_text = unicodedata.normalize('NFKC', timer_text)
             timers = re.findall(r'(?<!\d)(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})(?!\d)', timer_text)
+            if len(timers) != 1 and 'bounds' in limits and isinstance(text,Observation) and text.ocr_config:
+                # Retry OCR on an enlarged local crop; never guess missing digits
+                # or capture another image merely to recover tiny punctuation.
+                key=tuple(limits['bounds'])
+                if key not in text.timer_regions:
+                    from PIL import Image
+                    derived=Path(text.image_path).parent/'derived';derived.mkdir(exist_ok=True)
+                    stem=Path(text.image_path).stem+'-timer-'+('-'.join(map(str,key)))
+                    crop=derived/(stem+'.png')
+                    with Image.open(text.image_path) as image:
+                        region=image.crop(key);region.resize((region.width*4,region.height*4),Image.Resampling.LANCZOS).save(crop)
+                    raw=subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+                    data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
+                    text.timer_regions[key]='\n'.join(line['text'] for line in data['lines'])
+                timer_text=unicodedata.normalize('NFKC',text.timer_regions[key])
+                timers=re.findall(r'(?<!\d)(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})(?!\d)',timer_text)
+                if len(timers)!=1:
+                    # A calibrated timer-only crop may lose a separator, never
+                    # a digit. Accept exactly six digits and known separators;
+                    # the normal clock/range checks below still apply.
+                    recovered=re.fullmatch(r'\s*(\d{2})\s*[:.;,]?\s*(\d{2})\s*[:.;,]?\s*(\d{2})\s*',timer_text)
+                    if recovered:
+                        timers=[recovered.groups()]
+                        text.visual_checks.append({'timer_format_recovered':'six_digits_in_timer_only_crop','raw_ocr':timer_text})
             if len(timers) != 1:
                 raise RuntimeError('Expected exactly one readable HH:MM:SS timer')
             hours, minutes, seconds = map(int, timers[0])
@@ -203,6 +229,7 @@ def validate_workflow(workflow):
 
 class CuaMcp:
     def __init__(self, config):
+        Path(config['log_dir']).expanduser().mkdir(parents=True, exist_ok=True)
         server = json.loads(Path(config['mcp_manifest']).read_text())['mcpServers']['cua_repl']
         env = {k: os.environ[k] for k in ('HOME','PATH','TMPDIR','USER','LOGNAME','LANG') if k in os.environ}
         # No caller session identity, sockets, tokens, or approval context.
@@ -216,8 +243,10 @@ class CuaMcp:
             text=True, start_new_session=True, cwd=config['log_dir'])
         self.config, self.messages, self.errors, self.next_id = config, queue.Queue(), [], 0
         self.deadline = time.monotonic() + min(120, config.get('timeout_seconds',45))
-        threading.Thread(target=self._read,daemon=True).start()
-        threading.Thread(target=self._read_errors,daemon=True).start()
+        self.reader_thread=threading.Thread(target=self._read,daemon=True)
+        self.error_thread=threading.Thread(target=self._read_errors,daemon=True)
+        self.reader_thread.start()
+        self.error_thread.start()
 
     def _read(self):
         for line in self.proc.stdout:
@@ -300,7 +329,7 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise RuntimeError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr)
+        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US')})
 
     def close(self):
         if self.proc.poll() is None:
@@ -310,6 +339,11 @@ class CuaMcp:
             except subprocess.TimeoutExpired:
                 os.killpg(self.proc.pid, signal.SIGKILL)
                 self.proc.wait(timeout=5)
+        self.reader_thread.join(timeout=1)
+        self.error_thread.join(timeout=1)
+        self.proc.stdin.close()
+        if not self.reader_thread.is_alive(): self.proc.stdout.close()
+        if not self.error_thread.is_alive(): self.proc.stderr.close()
 
 
 def execute(config, workflow, step_name, backend=None):

@@ -11,6 +11,21 @@ class WindowMacroTests(unittest.TestCase):
     def workflow(self):
         return json.loads((Path(__file__).parent/'wos-profile.json').read_text())
 
+    def test_fresh_runtime_directory_supports_protocol_start_and_owned_cleanup(self):
+        import sys
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);logs=root/'new'/'logs';manifest=root/'mcp.json'
+            # Protocol fixture only: it never evaluates received JS or uses CUA.
+            server="import sys,json,os\nfor line in sys.stdin:\n m=json.loads(line)\n if 'id' in m: print(json.dumps({'jsonrpc':'2.0','id':m['id'],'result':{'content':[],'fixture_cwd':os.getcwd()}}),flush=True)"
+            manifest.write_text(json.dumps({'mcpServers':{'cua_repl':{'command':sys.executable,'args':['-u','-c',server]}}}))
+            client=macro.CuaMcp({'mcp_manifest':str(manifest),'log_dir':str(logs),
+                'target':{'app_path':'fixture-only-not-launched'},'timeout_seconds':5})
+            try:
+                client.start()
+                self.assertEqual(logs.resolve(),Path(client.js('fixture_observation')['fixture_cwd']).resolve())
+            finally:client.close()
+            self.assertIsNotNone(client.proc.poll())
+
     def test_ocr_accepts_whitespace_and_width_variants(self):
         macro.require_text('ＩＤ： １２３\n领主 档案',['ID:123','领主档案'])
 
@@ -59,6 +74,26 @@ class WindowMacroTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):macro.resolve_point(step,observation,[100,100])
         data['lines']=data['lines'][:1];data['lines'][0]['confidence']=.2
         with self.assertRaises(RuntimeError):macro.resolve_point(step,observation,[100,100])
+
+    def test_timer_crop_recovers_separators_without_inventing_digits(self):
+        try:
+            from PIL import Image
+        except ImportError:self.skipTest('Pillow is required for timer crop tests')
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'screen.png';Image.new('RGB',(100,100),'white').save(path)
+            data={'width':100,'height':100,'lines':[{'text':'0418:16','bounds':[.5,.5,.2,.1]}]}
+            condition={'all':['VIP'],'timer_seconds':{'bounds':[40,40,80,70],'min':1,'max':86400}}
+            observation=macro.Observation('VIP 0418:16',path,data,{'binary':'ocr','language':'en-US'})
+            with patch.object(macro.subprocess,'run') as run:
+                run.return_value.stdout=json.dumps({'lines':[{'text':'0418:16'}]})
+                macro.require_text(observation,condition);macro.require_text(observation,condition)
+                self.assertEqual(1,run.call_count)
+                self.assertEqual(15496,observation.visual_checks[-1]['timer_seconds'])
+            for value in ('04?:18:16','04:8:16','04:99:16'):
+                bad=macro.Observation('VIP unreadable',path,data,{'binary':'ocr','language':'en-US'})
+                with patch.object(macro.subprocess,'run') as run:
+                    run.return_value.stdout=json.dumps({'lines':[{'text':value}]})
+                    with self.assertRaises(RuntimeError):macro.require_text(bad,condition)
 
     def test_regional_timer_ignores_unrelated_vip_expiry(self):
         data={'width':100,'height':100,'lines':[
