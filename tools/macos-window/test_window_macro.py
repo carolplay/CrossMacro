@@ -35,6 +35,20 @@ class WindowMacroTests(unittest.TestCase):
         macro.require_text('挂机收益\n00:10:22\n3,400/小时',
                            {'all':['挂机收益'],'timer_seconds':{'min':60,'max':32400}})
 
+    def test_regional_timer_ignores_unrelated_vip_expiry(self):
+        data={'width':100,'height':100,'lines':[
+            {'text':'05:00:00','bounds':[.5,.5,.2,.1]},
+            {'text':'16d 03:00:00','bounds':[.2,.9,.4,.1]}]}
+        text=macro.Observation('VIP 每日免费礼包 05:00:00 16d 03:00:00','unused',data)
+        condition={'all':['VIP','每日免费礼包'],'timer_seconds':{'bounds':[40,40,80,70],'min':1,'max':86400}}
+        macro.require_text(text,condition)
+        self.assertEqual(18000,text.visual_checks[-1]['timer_seconds'])
+        with self.assertRaises(RuntimeError):
+            macro.require_text(str(text),condition)
+        condition['timer_seconds']['max']=10
+        with self.assertRaises(RuntimeError):
+            macro.require_text(text,condition)
+
     def test_animation_observation_retry_does_not_repeat_click(self):
         workflow = self.workflow()
         workflow['steps'][1]['observe_attempts'] = 2

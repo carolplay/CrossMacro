@@ -227,3 +227,26 @@ dotnet test tests/CrossMacro.UI.Tests/CrossMacro.UI.Tests.csproj -c Release \
 The Python tests check OCR assertions, fail-closed input, invalid coordinates,
 workflow export and coordinator exclusion. Platform integration must additionally
 verify both screenshot results and the user's physical pointer during real runs.
+
+## Additional WOS recordings
+
+- `wos-mail-rewards.json`: identity check, Report/System/Alliance mail categories,
+  batch read-and-claim, conditional reward dismissal, return to city. It never
+  deletes mail. A successful click without a reward overlay is **not** evidence
+  that new rewards were received. The no-new-reward replay was verified locally.
+- `wos-vip-inspect.json`: identity check and VIP free-bundle inspection. It does
+  not claim or buy anything. A bounded timer OCR region distinguishes the free
+  bundle's cooldown from the unrelated VIP subscription expiry timer.
+- `wos-idle-rewards.json`: actual exploration idle-reward claim, explicit disabled
+  button branch, reward evidence and return to city. The approximately ten-minute
+  claim interval applies to this reward category, not all game actions.
+
+`timer_seconds` may include `bounds: [left, top, right, bottom]` in reference-window
+pixels. Only OCR lines whose centers fall in that rectangle are searched, using
+fresh local OCR geometry. Multiple/missing timers still fail closed. Do not
+claim a cooldown merely because a generic page title was recognized.
+
+The three-workflow local batch was measured at 48.35 seconds with 53 local
+screenshots/OCR calls and zero runtime model calls. That is a **subset** of one
+visit, not a complete daily routine benchmark. Role identity, screenshots,
+recordings, per-role visit plans and full-run reports stay outside Git.

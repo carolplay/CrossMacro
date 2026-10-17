@@ -30,9 +30,10 @@ def normalize(text):
 
 
 class Observation(str):
-    def __new__(cls, text, image_path):
+    def __new__(cls, text, image_path, ocr_data=None):
         value = super().__new__(cls, text)
         value.image_path = image_path
+        value.ocr_data = ocr_data
         value.visual_checks = []
         return value
 
@@ -52,7 +53,21 @@ def require_text(text, required):
         if 'timer_seconds' in required:
             # Preserve line boundaries: joining a timer to the following
             # numeric hourly rate makes an otherwise valid timer unreadable.
-            timer_text = unicodedata.normalize('NFKC', text)
+            limits = required['timer_seconds']
+            timer_text = text
+            if 'bounds' in limits:
+                if not isinstance(text, Observation) or not text.ocr_data:
+                    raise RuntimeError('Regional timers require fresh local OCR geometry')
+                left, top, right, bottom = limits['bounds']
+                data = text.ocr_data
+                selected = []
+                for line in data['lines']:
+                    x,y,w,h = line['bounds']
+                    cx,cy = (x+w/2)*data['width'],(y+h/2)*data['height']
+                    if left <= cx <= right and top <= cy <= bottom:
+                        selected.append(line['text'])
+                timer_text = '\n'.join(selected)
+            timer_text = unicodedata.normalize('NFKC', timer_text)
             timers = re.findall(r'(?<!\d)(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})(?!\d)', timer_text)
             if len(timers) != 1:
                 raise RuntimeError('Expected exactly one readable HH:MM:SS timer')
@@ -60,7 +75,8 @@ def require_text(text, required):
             if minutes > 59 or seconds > 59:
                 raise RuntimeError('Invalid OCR timer')
             total = hours * 3600 + minutes * 60 + seconds
-            limits = required['timer_seconds']
+            if isinstance(text, Observation):
+                text.visual_checks.append({'timer_seconds':total,'bounds':limits.get('bounds')})
             if not limits.get('min', 0) <= total <= limits.get('max', 359999):
                 raise RuntimeError('OCR timer outside required range: ' + str(total))
         for region in required.get('green_regions', []):
@@ -99,10 +115,17 @@ def validate_condition(condition, size):
             validate_condition(condition[key],size)
     if 'timer_seconds' in condition:
         limits = condition['timer_seconds']
-        if (not isinstance(limits,dict) or not limits or set(limits)-{'min','max'}
-            or any(type(v) is not int or v < 0 for v in limits.values())
+        if (not isinstance(limits,dict) or not limits or set(limits)-{'min','max','bounds'}
+            or any(type(v) is not int or v < 0 for k,v in limits.items() if k != 'bounds')
             or limits.get('min',0) > limits.get('max',359999)):
             raise ValueError('Invalid timer limits')
+        if 'bounds' in limits:
+            bounds=limits['bounds']
+            if (not isinstance(bounds,list) or len(bounds)!=4
+                or any(type(v) is not int for v in bounds)
+                or not 0 <= bounds[0] < bounds[2] <= size[0]
+                or not 0 <= bounds[1] < bounds[3] <= size[1]):
+                raise ValueError('Invalid timer OCR region')
     for region in condition.get('green_regions',[]):
         bounds = region['bounds']
         if (len(bounds) != 4 or any(type(v) is not int for v in bounds)
@@ -236,7 +259,7 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise RuntimeError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return Observation('\n'.join(line['text'] for line in ocr['lines']), path)
+        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr)
 
     def close(self):
         if self.proc.poll() is None:

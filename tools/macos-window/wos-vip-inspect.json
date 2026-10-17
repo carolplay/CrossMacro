@@ -76,10 +76,22 @@
     {
       "name": "vip-cooldown-check",
       "action": "observe",
-      "before": [
-        "VIP",
-        "每日免费礼包"
-      ]
+      "before": {
+        "all": [
+          "VIP",
+          "每日免费礼包"
+        ],
+        "timer_seconds": {
+          "bounds": [
+            500,
+            675,
+            645,
+            735
+          ],
+          "min": 1,
+          "max": 86400
+        }
+      }
     },
     {
       "name": "vip-close",
