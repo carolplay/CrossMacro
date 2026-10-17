@@ -35,6 +35,31 @@ class WindowMacroTests(unittest.TestCase):
         macro.require_text('挂机收益\n00:10:22\n3,400/小时',
                            {'all':['挂机收益'],'timer_seconds':{'min':60,'max':32400}})
 
+    def test_ambiguous_text_target_never_sends_input(self):
+        workflow=self.workflow();step=workflow['steps'][1]
+        del step['point'];step['text_target']={'text':'免费领取','bounds':[0,0,700,500]}
+        data={'width':788,'height':1079,'lines':[
+            {'text':'免费领取','confidence':1,'bounds':[.2,.2,.1,.02]},
+            {'text':'免费领取','confidence':1,'bounds':[.4,.2,.1,.02]}]}
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(macro,'CuaMcp') as factory:
+                client=factory.return_value
+                client.observe.return_value=macro.Observation('英雄 背包 野外','unused',data)
+                with self.assertRaises(RuntimeError):macro.execute({'log_dir':directory},workflow,step['name'])
+                client.js.assert_not_called()
+
+    def test_text_target_rejects_duplicate_labels_and_low_confidence(self):
+        step={'text_target':{'text':'免费领取','bounds':[0,0,100,50]}}
+        data={'width':100,'height':100,'lines':[
+            {'text':'免费领取','confidence':1,'bounds':[.2,.2,.2,.1]},
+            {'text':'免费领取','confidence':1,'bounds':[.2,.7,.2,.1]}]}
+        observation=macro.Observation('免费领取','unused',data)
+        self.assertEqual([30,25],macro.resolve_point(step,observation,[100,100]))
+        data['lines'][1]['bounds']=[.5,.2,.2,.1]
+        with self.assertRaises(RuntimeError):macro.resolve_point(step,observation,[100,100])
+        data['lines']=data['lines'][:1];data['lines'][0]['confidence']=.2
+        with self.assertRaises(RuntimeError):macro.resolve_point(step,observation,[100,100])
+
     def test_regional_timer_ignores_unrelated_vip_expiry(self):
         data={'width':100,'height':100,'lines':[
             {'text':'05:00:00','bounds':[.5,.5,.2,.1]},

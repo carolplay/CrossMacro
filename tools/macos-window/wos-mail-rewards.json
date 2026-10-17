@@ -102,10 +102,6 @@
     {
       "name": "reports-claim",
       "action": "click",
-      "point": [
-        548,
-        1045
-      ],
       "before": [
         "邮件",
         "战争",
@@ -120,7 +116,18 @@
           "点击任意"
         ]
       },
-      "observe_attempts": 3
+      "observe_attempts": 3,
+      "text_target": {
+        "text": "一键已读",
+        "exact": false,
+        "bounds": [
+          430,
+          1010,
+          680,
+          1070
+        ],
+        "min_confidence": 0.5
+      }
     },
     {
       "name": "reports-dismiss",
@@ -185,10 +192,6 @@
     {
       "name": "system-claim",
       "action": "click",
-      "point": [
-        548,
-        1045
-      ],
       "before": [
         "邮件",
         "战争",
@@ -203,7 +206,18 @@
           "点击任意"
         ]
       },
-      "observe_attempts": 3
+      "observe_attempts": 3,
+      "text_target": {
+        "text": "一键已读",
+        "exact": false,
+        "bounds": [
+          430,
+          1010,
+          680,
+          1070
+        ],
+        "min_confidence": 0.5
+      }
     },
     {
       "name": "system-dismiss",
@@ -268,10 +282,6 @@
     {
       "name": "alliance-claim",
       "action": "click",
-      "point": [
-        548,
-        1045
-      ],
       "before": [
         "邮件",
         "战争",
@@ -286,7 +296,18 @@
           "点击任意"
         ]
       },
-      "observe_attempts": 3
+      "observe_attempts": 3,
+      "text_target": {
+        "text": "一键已读",
+        "exact": false,
+        "bounds": [
+          430,
+          1010,
+          680,
+          1070
+        ],
+        "min_confidence": 0.5
+      }
     },
     {
       "name": "alliance-dismiss",

@@ -250,3 +250,21 @@ The three-workflow local batch was measured at 48.35 seconds with 53 local
 screenshots/OCR calls and zero runtime model calls. That is a **subset** of one
 visit, not a complete daily routine benchmark. Role identity, screenshots,
 recordings, per-role visit plans and full-run reports stay outside Git.
+
+For labels that may move within a known control area, a click can use
+`text_target` instead of `point`, for example:
+
+```json
+{"text_target":{"text":"一键已读","exact":false,"bounds":[430,1010,680,1070],"min_confidence":0.5}}
+```
+
+The executor requires one matching local OCR line inside the bounded area.
+Duplicate, missing, low-confidence or out-of-window matches stop before input.
+The normal page precondition and completion check still apply. Confidence
+thresholds need calibration for each label/font; they are not probabilities of
+semantic success.
+
+A calibrated `offset: [dx, dy]` on a `text_target` can route an OCR row label to
+its adjacent button. The final point is still checked against the reference
+window. Keep offsets specific to a verified layout; ambiguous rows stop instead
+of guessing a button.

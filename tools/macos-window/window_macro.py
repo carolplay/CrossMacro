@@ -135,6 +135,30 @@ def validate_condition(condition, size):
             raise ValueError('Invalid button color region')
 
 
+
+def resolve_point(step, observation, size):
+    """Resolve one bounded OCR label locally; ambiguity never sends input."""
+    target=step.get('text_target')
+    if not target:
+        return step['point']
+    if not isinstance(observation,Observation) or not observation.ocr_data:
+        raise RuntimeError('Text targets require fresh local OCR geometry')
+    left,top,right,bottom=target['bounds'];matches=[]
+    for line in observation.ocr_data['lines']:
+        value=normalize(line['text']);label=normalize(target['text'])
+        if not (value==label if target.get('exact',True) else label in value):continue
+        if line.get('confidence',0)<target.get('min_confidence',.8):continue
+        x,y,w,h=line['bounds'];cx,cy=(x+w/2)*size[0],(y+h/2)*size[1]
+        if left<=cx<=right and top<=cy<=bottom:
+            offset=target.get('offset',[0,0])
+            point=[round(cx)+offset[0],round(cy)+offset[1]]
+            if not all(0 <= v < size[i] for i,v in enumerate(point)):
+                raise RuntimeError('OCR target resolves outside the reference window')
+            matches.append(point)
+    if len(matches)!=1:raise RuntimeError('Expected exactly one confident text target; found '+str(len(matches)))
+    return matches[0]
+
+
 def validate_workflow(workflow):
     size = workflow['reference_size']
     if len(size) != 2 or any(type(v) is not int or v <= 0 for v in size):
@@ -150,7 +174,24 @@ def validate_workflow(workflow):
             if key in step:
                 validate_condition(step[key],size)
         if step['action'] == 'click':
-            point = step['point']
+            if ('point' in step) == ('text_target' in step):
+                raise ValueError('A click requires exactly one point or text_target')
+            if 'text_target' in step:
+                target=step['text_target']
+                if not isinstance(target,dict):raise ValueError('text_target must be an object')
+                bounds=target.get('bounds',[])
+                if (set(target)-{'text','bounds','exact','min_confidence','offset'}
+                    or not isinstance(target.get('text'),str) or not normalize(target['text'])
+                    or type(target.get('exact',True)) is not bool
+                    or not isinstance(target.get('offset',[0,0]),list)
+                    or len(target.get('offset',[0,0])) != 2
+                    or any(type(v) is not int or abs(v)>max(size) for v in target.get('offset',[0,0]))
+                    or not 0 <= target.get('min_confidence',.8) <= 1
+                    or len(bounds)!=4 or any(type(v) is not int for v in bounds)
+                    or not 0<=bounds[0]<bounds[2]<=size[0]
+                    or not 0<=bounds[1]<bounds[3]<=size[1]):
+                    raise ValueError('Invalid bounded OCR text target')
+            point = step.get('point',[0,0])
             if len(point) != 2 or any(type(v) is not int or not 0 <= v < size[i] for i, v in enumerate(point)):
                 raise ValueError('Click is outside reference window')
             if not step.get('after'):
@@ -321,6 +362,8 @@ def execute(config, workflow, step_name, backend=None):
                          'visual_checks':getattr(before,'visual_checks',[])}
                 report['steps'].append(entry)
                 if step['action'] == 'click':
+                    point=resolve_point(step,before,workflow['reference_size'])
+                    entry['resolved_point']=point
                     capture = None
                     audio_spec = config.get('audio_feedback',{}).get(step.get('audio_event'))
                     if audio_spec:
@@ -333,7 +376,7 @@ def execute(config, workflow, step_name, backend=None):
                             if capture: capture.stop();capture=None
                     entry['click_unix'] = time.time()
                     try:
-                        client.js('await target.click(%s); await target.getAXState();' % json.dumps(step['point']))
+                        client.js('await target.click(%s); await target.getAXState();' % json.dumps(point))
                     finally:
                         if capture:
                             try: capture.proc.wait(timeout=audio_spec.get('window_seconds',2)+3)
