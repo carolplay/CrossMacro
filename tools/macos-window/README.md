@@ -40,6 +40,40 @@ another executor against the same game during this experiment.
 
 ## Create an editable CrossMacro macro
 
+### Exploration idle rewards
+
+`wos-idle-rewards.json` is a real, ten-step daily-reward workflow for the
+788×1079 Chinese client. It verifies the configured identity, opens Exploration,
+claims idle income, dismisses the reward overlay, checks that Claim is disabled,
+and returns to the city. When already cooling down it skips the claim actions.
+Use the same export/worker commands below with this workflow path. Load the
+exported macro in the editor; each step is an ordinary Shell action.
+
+Existing scenario reference:
+[`claim_exploration_idle_income`](https://github.com/AminulIslamSifat/whiteout-survival-bot/blob/main/usecases/exploration.py)
+uses an Android ADB backend. This workflow was calibrated separately against the
+macOS client and uses the local executor above, without importing that bot or its
+account, spending, emulator or background services.
+
+The optional `green_regions` conditions require Pillow in the chosen Python.
+OCR checks page text, while a calibrated button region distinguishes enabled
+green Claim from disabled grey Claim. A grey label still says Claim: OCR alone
+cannot distinguish these states. Claiming starts a ten-minute cooldown, during
+which the income-details dialog cannot be reopened. Do not assume immediate
+reopening can verify a zero elapsed timer. Color regions and coordinates require
+recalibration when the game layout, window size or language changes.
+
+Condition objects support `all`, `any`, `none`, `timer_seconds`, and
+`green_regions`; ordinary text arrays remain supported. `skip_if` explicitly
+skips a step from its current local observation and records that fact.
+`observe_attempts` (1–5) retries only post-action observations during animations,
+never the click. The runtime calls no models. CrossMacro's reported event count
+may be zero because these are script actions rather than native mouse events.
+
+In macOS window-task mode the CLI preflight does not create a desktop input
+device. Macros that request native input still fail at the disabled platform
+factory; this is the same external-only mode used by the editor and scheduler.
+
 ```sh
 /absolute/path/to/python3 tools/macos-window/window_macro.py export \
   --config /private/path/config.json \
@@ -125,6 +159,62 @@ existing daily schedules until the trial is reliable.
   overhead for simple cancellation and isolation. The exported GUI macro instead
   uses the persistent worker connection. A failed worker must be restarted before
   further scheduled work; no foreground fallback is attempted.
+
+## Optional process-audio experiment and deferred check
+
+`audio-tap.m` uses Apple's macOS 14.2+ Core Audio process tap to capture only the
+configured app's output. It does not capture a microphone or fall back to the
+global audio mix, and it leaves speaker output and default audio devices intact.
+The private tap/aggregate device is destroyed on exit. Build it in a stable local
+app bundle with an `NSAudioCaptureUsageDescription` and normal system audio
+permission; do not put the resulting recordings in this repository.
+
+```sh
+clang -fobjc-arc -fno-modules -mmacosx-version-min=14.2 \
+  -framework AppKit -framework CoreAudio -framework AudioToolbox \
+  tools/macos-window/audio-tap.m -o /private/path/WOSAudioTap.app/Contents/MacOS/audio-tap
+```
+
+`audio_feedback.py` manages the capture, converts CAF to 16-bit WAV with the
+system `afconvert`, and provides local time-aligned normalized-waveform template
+scoring using NumPy. Silence or low/ambiguous scores never confirm an action. A matching sound
+is a candidate event, not semantic proof that the expected page/reward changed.
+Synthetic tests verify alignment and fallback, not real WOS sound accuracy.
+
+Add `audio_capture: {"binary": "/private/path/to/audio-tap", "mode": "shadow"}`
+to the private config. `audio_trial.py` wraps an existing CrossMacro macro,
+records click timestamps from step reports, and writes `trial.json` with audio,
+OCR/screenshot counts and a deferred check. Keep the external worker running and
+the same DOTNET/window-task environment as ordinary playback. Shadow mode removes
+zero screenshots/OCR calls: calibrate with held-out clicks, real rewards, disabled
+clicks and background audio before enabling any faster path.
+
+```sh
+python3 tools/macos-window/audio_trial.py --config /private/config.json \
+  --workflow tools/macos-window/wos-idle-rewards.json --player /path/to/CrossMacro.UI \
+  --macro /private/wos-idle-rewards.macro --folder /private/audio-trial
+python3 tools/macos-window/check_run.py /private/runs/*/result.json \
+  --workflow tools/macos-window/wos-idle-rewards.json --output /private/check.json
+```
+
+`check_run.py` is independent of the execution loop. It records failed/missing
+steps, unverified postconditions and uncertain audio in a recheck queue with
+local evidence paths. A later local rule or model can review just that queue.
+The checker itself never repeats game actions, uploads evidence, calls a model,
+or marks an audio-only event as a verified reward. This separates fast routine
+execution from deviation review and repair planning.
+
+For an explicitly calibrated transition, set the step's `audio_event` and add a
+matching entry under private `audio_feedback`, for example a `profile-open`
+template, threshold 0.8 and two-second capture window. An accepted sound can
+defer one post-action screenshot/OCR; missing or uncertain audio falls back to
+visual verification without repeating the click. The next normal step still
+observes its page and checks identity. The independent checker resolves a
+deferred transition only when the immediate next visual precondition covers the
+expected page text; otherwise it emits a review item. No reward step is enabled
+for audio-only feedback by default. First test a small navigation flow, then
+measure both call counts and latency; fewer OCR calls do not guarantee lower
+latency with a fixed capture window.
 
 ## Tests
 

@@ -1,0 +1,290 @@
+{
+  "name": "WOS — claim exploration idle rewards",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "05-open-exploration",
+      "action": "click",
+      "point": [
+        156,
+        1027
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "探险",
+        "领取"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "06-open-idle-rewards",
+      "action": "click",
+      "point": [
+        586,
+        738
+      ],
+      "before": [
+        "探险",
+        "领取"
+      ],
+      "after": [
+        "挂机收益",
+        "挂机时间",
+        "领取"
+      ],
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "探险",
+          "领取"
+        ],
+        "none": [
+          "挂机收益",
+          "挂机时间",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              565,
+              725,
+              635,
+              750
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "07-claim-idle-rewards",
+      "action": "click",
+      "point": [
+        394,
+        789
+      ],
+      "before": {
+        "all": [
+          "挂机收益",
+          "挂机时间",
+          "领取"
+        ],
+        "timer_seconds": {
+          "min": 60,
+          "max": 32400
+        }
+      },
+      "after": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白",
+          "点击屏幕"
+        ],
+        "none": [
+          "挂机时间"
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "探险",
+          "领取"
+        ],
+        "none": [
+          "挂机收益",
+          "挂机时间",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              565,
+              725,
+              635,
+              750
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "08-dismiss-rewards",
+      "action": "click",
+      "point": [
+        392,
+        932
+      ],
+      "before": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白",
+          "点击屏幕"
+        ],
+        "none": [
+          "挂机时间"
+        ]
+      },
+      "after": {
+        "all": [
+          "探险",
+          "领取"
+        ],
+        "none": [
+          "挂机收益",
+          "挂机时间",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              565,
+              725,
+              635,
+              750
+            ],
+            "max": 0.08
+          }
+        ]
+      },
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "探险",
+          "领取"
+        ],
+        "none": [
+          "挂机收益",
+          "挂机时间",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              565,
+              725,
+              635,
+              750
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "09-verify-claim-disabled",
+      "action": "observe",
+      "before": {
+        "all": [
+          "探险",
+          "领取"
+        ],
+        "none": [
+          "挂机收益",
+          "挂机时间",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              565,
+              725,
+              635,
+              750
+            ],
+            "max": 0.08
+          }
+        ]
+      }
+    },
+    {
+      "name": "10-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "探险",
+        "领取"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 3
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import shlex
 import signal
 import socket
@@ -28,10 +29,87 @@ def normalize(text):
     return ''.join(unicodedata.normalize('NFKC', text).split())
 
 
+class Observation(str):
+    def __new__(cls, text, image_path):
+        value = super().__new__(cls, text)
+        value.image_path = image_path
+        value.visual_checks = []
+        return value
+
+
 def require_text(text, required):
+    if isinstance(required, dict):
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions'}
+        if unknown:
+            raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
+        require_text(text, required.get('all', []))
+        value = normalize(text)
+        choices = required.get('any', [])
+        if choices and not any(normalize(s) in value for s in choices):
+            raise RuntimeError('OCR condition failed: no alternative matched')
+        if any(normalize(s) in value for s in required.get('none', [])):
+            raise RuntimeError('OCR condition failed: forbidden text remains')
+        if 'timer_seconds' in required:
+            # Preserve line boundaries: joining a timer to the following
+            # numeric hourly rate makes an otherwise valid timer unreadable.
+            timer_text = unicodedata.normalize('NFKC', text)
+            timers = re.findall(r'(?<!\d)(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})(?!\d)', timer_text)
+            if len(timers) != 1:
+                raise RuntimeError('Expected exactly one readable HH:MM:SS timer')
+            hours, minutes, seconds = map(int, timers[0])
+            if minutes > 59 or seconds > 59:
+                raise RuntimeError('Invalid OCR timer')
+            total = hours * 3600 + minutes * 60 + seconds
+            limits = required['timer_seconds']
+            if not limits.get('min', 0) <= total <= limits.get('max', 359999):
+                raise RuntimeError('OCR timer outside required range: ' + str(total))
+        for region in required.get('green_regions', []):
+            if not isinstance(text, Observation):
+                raise RuntimeError('Color conditions require a fresh image observation')
+            from PIL import Image
+            with Image.open(text.image_path) as image:
+                left, top, right, bottom = region['bounds']
+                if not (0 <= left < right <= image.width and 0 <= top < bottom <= image.height):
+                    raise ValueError('Color region is outside the observed window')
+                pixels = image.convert('RGB').crop((left,top,right,bottom)).tobytes()
+            ratio = sum(g > 100 and g > 1.25*r and g > 1.1*b
+                        for r,g,b in zip(pixels[::3],pixels[1::3],pixels[2::3])) / (len(pixels)//3)
+            text.visual_checks.append({'bounds':region['bounds'], 'green_fraction':ratio})
+            if not region.get('min', 0) <= ratio <= region.get('max', 1):
+                raise RuntimeError('Button color condition failed: green fraction ' + str(ratio))
+        return
     missing = [s for s in required if not s or normalize(s) not in normalize(text)]
     if missing:
         raise RuntimeError('OCR condition failed: ' + ', '.join(missing))
+
+
+def validate_condition(condition, size):
+    if isinstance(condition, list):
+        if not condition or any(not isinstance(s,str) or not s for s in condition):
+            raise ValueError('OCR conditions must contain nonempty text')
+        return
+    if not isinstance(condition, dict) or not condition:
+        raise ValueError('Expected OCR text list or condition object')
+    if set(condition) - {'all','any','none','timer_seconds','green_regions'}:
+        raise ValueError('Unknown local observation condition')
+    if not condition.get('all') and not condition.get('any'):
+        raise ValueError('Conditions require a positive page-text assertion')
+    for key in ('all','any','none'):
+        if key in condition:
+            validate_condition(condition[key],size)
+    if 'timer_seconds' in condition:
+        limits = condition['timer_seconds']
+        if (not isinstance(limits,dict) or not limits or set(limits)-{'min','max'}
+            or any(type(v) is not int or v < 0 for v in limits.values())
+            or limits.get('min',0) > limits.get('max',359999)):
+            raise ValueError('Invalid timer limits')
+    for region in condition.get('green_regions',[]):
+        bounds = region['bounds']
+        if (len(bounds) != 4 or any(type(v) is not int for v in bounds)
+            or not 0 <= bounds[0] < bounds[2] <= size[0]
+            or not 0 <= bounds[1] < bounds[3] <= size[1]
+            or not 0 <= region.get('min',0) <= region.get('max',1) <= 1):
+            raise ValueError('Invalid button color region')
 
 
 def validate_workflow(workflow):
@@ -45,12 +123,18 @@ def validate_workflow(workflow):
         names.add(step['name'])
         if step['action'] not in ('observe', 'click') or not step.get('before'):
             raise ValueError('Every step requires an observe/click action and OCR preconditions')
+        for key in ('before','after','skip_if'):
+            if key in step:
+                validate_condition(step[key],size)
         if step['action'] == 'click':
             point = step['point']
             if len(point) != 2 or any(type(v) is not int or not 0 <= v < size[i] for i, v in enumerate(point)):
                 raise ValueError('Click is outside reference window')
             if not step.get('after'):
                 raise ValueError('Every click requires OCR completion conditions')
+        attempts = step.get('observe_attempts', 1)
+        if type(attempts) is not int or not 1 <= attempts <= 5:
+            raise ValueError('observe_attempts must be between 1 and 5')
 
 
 class CuaMcp:
@@ -152,7 +236,7 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise RuntimeError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return '\n'.join(line['text'] for line in ocr['lines'])
+        return Observation('\n'.join(line['text'] for line in ocr['lines']), path)
 
     def close(self):
         if self.proc.poll() is None:
@@ -191,21 +275,75 @@ def execute(config, workflow, step_name, backend=None):
                 client.deadline = time.monotonic() + min(120,config.get('timeout_seconds',45))
             for index, step in enumerate(steps):
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
+                if step.get('skip_if'):
+                    try:
+                        require_text(before, step['skip_if'])
+                    except RuntimeError:
+                        pass
+                    else:
+                        report['steps'].append({'name':step['name'], 'skipped':True,
+                                                'reason':'Explicit local observation skip condition matched',
+                                                'visual_checks':getattr(before,'visual_checks',[])})
+                        print(json.dumps({'status':'step_skipped','step':step['name']},ensure_ascii=False),flush=True)
+                        continue
                 require_text(before, step['before'])
                 if step.get('verify_identity'):
                     identity = config.get('identity_text',[])
                     if not identity:
                         raise RuntimeError('Identity assertions are required in local config')
                     require_text(before, identity)
-                entry = {'name':step['name'],'before_verified':True}
+                entry = {'name':step['name'],'before_verified':True,
+                         'verified_before_conditions':step['before'],
+                         'identity_verified':bool(step.get('verify_identity')),
+                         'visual_checks':getattr(before,'visual_checks',[])}
                 report['steps'].append(entry)
                 if step['action'] == 'click':
+                    capture = None
+                    audio_spec = config.get('audio_feedback',{}).get(step.get('audio_event'))
+                    if audio_spec:
+                        try:
+                            from audio_feedback import AudioCapture
+                            capture = AudioCapture(config['audio_capture']['binary'],config['target']['bundle_id'],folder/'audio',audio_spec.get('window_seconds',2))
+                            capture.wait_ready()
+                        except Exception as exc:
+                            entry['audio_feedback']={'status':'unavailable','reason':str(exc)}
+                            if capture: capture.stop();capture=None
                     entry['click_unix'] = time.time()
-                    client.js('await target.click(%s); await target.getAXState();' % json.dumps(step['point']))
+                    try:
+                        client.js('await target.click(%s); await target.getAXState();' % json.dumps(step['point']))
+                    finally:
+                        if capture:
+                            try: capture.proc.wait(timeout=audio_spec.get('window_seconds',2)+3)
+                            except subprocess.TimeoutExpired: pass
+                            entry['audio_capture']=capture.stop()
+                    if capture and entry['audio_capture'].get('usable_audio'):
+                        from audio_feedback import classify
+                        try:
+                            feedback=classify(entry['audio_capture']['wav'],{step['audio_event']:audio_spec['template']},audio_spec.get('threshold',.8))
+                        except Exception as exc:
+                            feedback={'status':'unavailable','reason':str(exc)}
+                        entry['audio_feedback']=feedback
+                        if feedback['status']=='candidate':
+                            entry['after_deferred_to_check']=True
+                            entry['deferred_after_conditions']=step['after']
+                            entry['screenshots_removed']=1
+                            entry['ocr_calls_removed']=1
+                            print(json.dumps({'status':'audio_confirmed_transition','step':step['name']},ensure_ascii=False),flush=True)
+                            continue
                     # Re-observe after the action; no blind retries or model.
-                    after = client.observe(folder,'%02d-after'%index, workflow['reference_size'])
-                    require_text(after,step['after'])
+                    # Retry observations only: an animation must never cause a
+                    # duplicate claim, purchase or other repeated input.
+                    for attempt in range(step.get('observe_attempts', 1)):
+                        after = client.observe(folder,'%02d-after-%02d'%(index,attempt), workflow['reference_size'])
+                        try:
+                            require_text(after,step['after'])
+                            break
+                        except RuntimeError:
+                            if attempt + 1 == step.get('observe_attempts', 1):
+                                raise
                     entry['after_verified'] = True
+                    entry['after_observations'] = attempt + 1
+                    entry['after_visual_checks'] = getattr(after,'visual_checks',[])
                 print(json.dumps({'status':'step_passed','step':step['name']},ensure_ascii=False),flush=True)
             report['status'] = 'passed'
         except (Exception, KeyboardInterrupt) as exc:

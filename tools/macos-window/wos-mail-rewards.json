@@ -1,0 +1,350 @@
+{
+  "name": "WOS — mail batch claim (no deletion)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "mail-open",
+      "action": "click",
+      "point": [
+        647,
+        892
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "reports-tab",
+      "action": "click",
+      "point": [
+        506,
+        124
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "reports-claim",
+      "action": "click",
+      "point": [
+        548,
+        1045
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": {
+        "any": [
+          "邮件",
+          "获得奖励",
+          "点击任意"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "reports-dismiss",
+      "action": "click",
+      "point": [
+        390,
+        932
+      ],
+      "before": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白"
+        ]
+      },
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "邮件",
+          "战争",
+          "联盟",
+          "报告",
+          "收藏"
+        ],
+        "none": [
+          "获得奖励",
+          "点击任意"
+        ]
+      }
+    },
+    {
+      "name": "system-tab",
+      "action": "click",
+      "point": [
+        394,
+        124
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "system-claim",
+      "action": "click",
+      "point": [
+        548,
+        1045
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": {
+        "any": [
+          "邮件",
+          "获得奖励",
+          "点击任意"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "system-dismiss",
+      "action": "click",
+      "point": [
+        390,
+        932
+      ],
+      "before": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白"
+        ]
+      },
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "邮件",
+          "战争",
+          "联盟",
+          "报告",
+          "收藏"
+        ],
+        "none": [
+          "获得奖励",
+          "点击任意"
+        ]
+      }
+    },
+    {
+      "name": "alliance-tab",
+      "action": "click",
+      "point": [
+        281,
+        124
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3
+    },
+    {
+      "name": "alliance-claim",
+      "action": "click",
+      "point": [
+        548,
+        1045
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": {
+        "any": [
+          "邮件",
+          "获得奖励",
+          "点击任意"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "alliance-dismiss",
+      "action": "click",
+      "point": [
+        390,
+        932
+      ],
+      "before": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白"
+        ]
+      },
+      "after": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "邮件",
+          "战争",
+          "联盟",
+          "报告",
+          "收藏"
+        ],
+        "none": [
+          "获得奖励",
+          "点击任意"
+        ]
+      }
+    },
+    {
+      "name": "mail-close",
+      "action": "click",
+      "point": [
+        658,
+        60
+      ],
+      "before": [
+        "邮件",
+        "战争",
+        "联盟",
+        "报告",
+        "收藏"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 3
+    }
+  ]
+}
