@@ -7,6 +7,21 @@ import window_macro as macro
 from image_targets import match
 
 class ImageTargetsTests(unittest.TestCase):
+    def test_large_nearly_flat_region_is_not_a_high_score_match(self):
+        # Float32 integral sums lose variance precision near the lower/right
+        # edge of a large, bright region and can falsely yield a perfect hit.
+        with tempfile.TemporaryDirectory() as directory:
+            r=Path(directory);rng=np.random.default_rng(42)
+            source=np.repeat(180+rng.integers(0,3,(790,588,1)),3,2).astype(np.uint8)
+            template=rng.integers(0,256,(35,34,3),dtype=np.uint8)
+            Image.fromarray(source).save(r/'source.png')
+            Image.fromarray(template).save(r/'template.png')
+            obs=macro.Observation('PAGE',r/'source.png',{}, {'templates':{'target':str(r/'template.png')}})
+            spec={'template':'target','bounds':[0,0,588,790],'mode':'grayscale','min_score':.86}
+            self.assertLess(match(obs,spec)['score'],.3)
+            with self.assertRaises(RuntimeError):
+                macro.resolve_point({'image_target':spec},obs,[588,790])
+
     def test_bounded_translated_template_and_cache(self):
         with tempfile.TemporaryDirectory() as directory:
             r=Path(directory);rng=np.random.default_rng(71)

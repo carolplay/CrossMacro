@@ -4,8 +4,8 @@ import numpy as np
 from PIL import Image
 
 def pixels(image, mode):
-    a=np.asarray(image.convert('RGB'),dtype=np.float32)
-    if mode=='white-glyph':return ((a.min(axis=2)>180)&((a.max(axis=2)-a.min(axis=2))<95)).astype(np.float32)
+    a=np.asarray(image.convert('RGB'),dtype=np.float64)
+    if mode=='white-glyph':return ((a.min(axis=2)>180)&((a.max(axis=2)-a.min(axis=2))<95)).astype(np.float64)
     return a.mean(axis=2)
 
 def match(observation, spec):
