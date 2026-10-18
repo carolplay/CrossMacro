@@ -15,7 +15,7 @@ def fatal(error):
     return any(word in text for word in ('mac is locked', 'automatic unlock', 'rejected due to',
         'permission denied', 'access denied', 'mcp closed', 'mcp operation failed', 'mcp timed out',
         'mcp operation deadline', 'active executor', 'identity mismatch', 'window size changed',
-        'user changed', 're-query the latest state'))
+        'user changed', 're-query the latest state', 'cannot be associated with a chatgpt thread'))
 
 
 def matches(observation, condition):

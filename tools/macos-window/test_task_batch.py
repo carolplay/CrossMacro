@@ -7,6 +7,41 @@ import task_batch as batch
 import window_macro as macro
 
 class BatchTests(unittest.TestCase):
+    def test_lab_button_ocr_failure_recovers_and_runs_following_task(self):
+        flow=json.loads((Path(__file__).parent/'wos-crystal-half-price.json').read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            backend=Mock();backend.observe.side_effect=[
+                '今日剩余次数：8 本周超级提炼次数：68 超级提炼I次',
+                '英雄 背包 野外','CITY']
+            with patch.object(macro,'execute',side_effect=[RuntimeError('button OCR failure'),None,None]) as execute:
+                result=batch.run_batch({'log_dir':directory},[('refined',flow),('next',self.flow())],backend)
+            self.assertEqual(['deviation','passed'],[t['status'] for t in result['tasks']])
+            self.assertEqual('exit-lab',execute.call_args_list[1].args[1]['steps'][0]['name'])
+
+    def test_inactive_vip_alternative_skips_without_click(self):
+        flow={'reference_size':[100,100], 'steps':[{'name':'claim','action':'click',
+              'point':[10,10],'before':['FREE'],'after':['DONE'],
+              'skip_if_any':[{'all':['VIP','COOLDOWN']},{'all':['VIP','INACTIVE']}]}]}
+        with tempfile.TemporaryDirectory() as directory:
+            client=Mock();client.observe.return_value='VIP INACTIVE'
+            macro.execute({'log_dir':directory},flow,'all',backend=client)
+            client.js.assert_not_called()
+
+    def test_cropped_counter_ignores_icon_fused_into_full_window_ocr(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'counter.png';Image.new('RGB',(100,100)).save(path)
+            observation=macro.Observation('PAGE count88',path,{'width':100,'height':100,'lines':[]},
+                                          {'binary':'fixture','language':'en-US'})
+            output=Mock(stdout=json.dumps({'lines':[{'text':'count:8','confidence':1}]}))
+            condition={'all':['PAGE'],'text_regions':[{'bounds':[0,0,50,30],
+                       'pattern':'count:8','crop_ocr':True}]}
+            with patch.object(macro.subprocess,'run',return_value=output) as ocr:
+                macro.require_text(observation,condition)
+                condition['text_regions'][0]['pattern']='count:7'
+                with self.assertRaises(RuntimeError):macro.require_text(observation,condition)
+            self.assertEqual(1,ocr.call_count)
+
     def flow(self):
         return {'reference_size':[100,100], 'steps':[], 'task_contract':{'anchor':['CITY'], 'max_exit_steps':2,
             'exits':[{'name':'close','action':'click','point':[10,10],'before':['VIP'],'after':['CITY']}]}}
@@ -62,6 +97,7 @@ class BatchTests(unittest.TestCase):
     def test_locked_runtime_is_fatal(self):
         self.assertTrue(batch.fatal(RuntimeError('The Mac is locked and automatic unlock could not unlock it')))
         self.assertFalse(batch.fatal(RuntimeError('Expected exactly one readable HH:MM:SS timer')))
+        self.assertTrue(batch.fatal(RuntimeError('This Computer Use request cannot be associated with a ChatGPT thread')))
 
     def test_observe_retry_waits_out_reward_animation_without_clicking(self):
         flow={'reference_size':[100,100], 'steps':[{'name':'check', 'action':'observe',

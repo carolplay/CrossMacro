@@ -81,6 +81,28 @@ def require_text(text, required):
         for region in required.get('text_regions', []):
             if not isinstance(text, Observation) or not text.ocr_data:
                 raise RuntimeError('Regional text requires fresh OCR geometry')
+            if region.get('crop_ocr'):
+                if not text.ocr_config:
+                    raise RuntimeError('Cropped text requires local OCR configuration')
+                key=('text',*region['bounds'])
+                if key not in text.timer_regions:
+                    from PIL import Image
+                    derived=Path(text.image_path).parent/'derived';derived.mkdir(exist_ok=True)
+                    stem=Path(text.image_path).stem+'-text-'+('-'.join(map(str,region['bounds'])))
+                    crop=derived/(stem+'.png')
+                    with Image.open(text.image_path) as image:
+                        clipped=image.crop(region['bounds'])
+                        clipped.resize((clipped.width*4,clipped.height*4),Image.Resampling.LANCZOS).save(crop)
+                    raw=subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+                    data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
+                    text.timer_regions[key]=data['lines']
+                lines=text.timer_regions[key]
+                matches=[line['text'] for line in lines if line.get('confidence',0)>=region.get('min_confidence',.5)
+                         and re.fullmatch(region['pattern'],normalize(line['text']))]
+                if len(matches)!=1:
+                    raise RuntimeError('Expected exactly one matching cropped text value')
+                text.visual_checks.append({'cropped_text':matches[0],'bounds':region['bounds']})
+                continue
             left, top, right, bottom = region['bounds']
             data = text.ocr_data
             matches = []
@@ -214,7 +236,8 @@ def validate_condition(condition, size):
         if (len(bounds)!=4 or any(type(v) is not int for v in bounds)
             or not 0<=bounds[0]<bounds[2]<=size[0] or not 0<=bounds[1]<bounds[3]<=size[1]
             or not isinstance(region.get('pattern'),str) or len(region['pattern'])>200
-            or not 0<=region.get('min_confidence',.5)<=1):
+            or not 0<=region.get('min_confidence',.5)<=1
+            or type(region.get('crop_ocr',False)) is not bool):
             raise ValueError('Invalid regional text assertion')
         re.compile(region['pattern'])
 
@@ -280,6 +303,8 @@ def validate_workflow(workflow):
         for key in ('before','after','skip_if'):
             if key in step:
                 validate_condition(step[key],size)
+        for condition in step.get('skip_if_any', []):
+            validate_condition(condition,size)
         if step['action'] == 'click':
             if sum(key in step for key in ('point','text_target','green_target'))!=1:
                 raise ValueError('A click requires exactly one point, text_target or green_target')
@@ -480,14 +505,17 @@ def execute(config, workflow, step_name, backend=None):
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
                 skipped = False
                 for attempt in range(step.get('observe_attempts', 1)):
-                    if step.get('skip_if'):
+                    skip_conditions=step.get('skip_if_any', []) + ([step['skip_if']] if step.get('skip_if') else [])
+                    for skip_condition in skip_conditions:
                         try:
-                            require_text(before, step['skip_if'])
+                            require_text(before, skip_condition)
                         except RuntimeError:
                             pass
                         else:
                             skipped = True
                             break
+                    if skipped:
+                        break
                     try:
                         require_text(before, step['before'])
                         break

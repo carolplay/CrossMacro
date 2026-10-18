@@ -1,6 +1,6 @@
 {
   "action_id": "wos-vip-inspect",
-  "action_version": "0.1.0",
+  "action_version": "0.1.1",
   "name": "WOS — free VIP gift or cooldown",
   "reference_size": [
     788,
@@ -122,23 +122,42 @@
           "点击空白"
         ]
       },
-      "skip_if": {
-        "all": [
-          "VIP",
-          "每日免费礼包"
-        ],
-        "timer_seconds": {
-          "bounds": [
-            500,
-            675,
-            645,
-            735
+      "observe_attempts": 3,
+      "skip_if_any": [
+        {
+          "all": [
+            "VIP",
+            "每日免费礼包"
           ],
-          "min": 1,
-          "max": 86400
+          "timer_seconds": {
+            "bounds": [
+              500,
+              675,
+              645,
+              735
+            ],
+            "min": 1,
+            "max": 86400
+          }
+        },
+        {
+          "all": [
+            "VIP",
+            "每日免费礼包"
+          ],
+          "text_regions": [
+            {
+              "bounds": [
+                520,
+                675,
+                640,
+                735
+              ],
+              "pattern": "未激活"
+            }
+          ]
         }
-      },
-      "observe_attempts": 3
+      ]
     },
     {
       "name": "vip-reward-dismiss",
@@ -176,7 +195,7 @@
       }
     },
     {
-      "name": "vip-cooldown-check",
+      "name": "vip-unavailable-check",
       "action": "observe",
       "before": {
         "all": [
@@ -193,6 +212,23 @@
           "min": 1,
           "max": 86400
         }
+      },
+      "skip_if": {
+        "all": [
+          "VIP",
+          "每日免费礼包"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              520,
+              675,
+              640,
+              735
+            ],
+            "pattern": "未激活"
+          }
+        ]
       }
     },
     {
@@ -344,5 +380,5 @@
     ]
   },
   "status": "real_claim_replay_verified",
-  "verification_scope": "Free claim and cooldown replayed; filename retained for compatibility."
+  "verification_scope": "0.1.1: under30 inactive free-gift branch skipped without activation; city exit and following tasks passed. Prior version fire-crystal roles free claim/cooldown passed; no inference that all states validated at this patch."
 }

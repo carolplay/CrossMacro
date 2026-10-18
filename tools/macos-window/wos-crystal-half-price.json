@@ -1,13 +1,13 @@
 {
   "action_id": "wos-crystal-half-price",
-  "action_version": "0.1.0",
+  "action_version": "0.1.1",
   "name": "WOS — first daily half-price super refinement only",
   "reference_size": [
     788,
     1079
   ],
   "status": "candidate",
-  "scope": "Exactly one10-fire-crystal super refinement, only visible daily-special state;20-price state skips. No multiple/original-price button. Daily ledger required before promotion.",
+  "scope": "Exactly one10-fire-crystal super refinement, only visible daily-special state;20-price skips. No multiple/original-price button. Persistent role/UTC-day ledger required.",
   "steps": [
     {
       "name": "01-check-city",
@@ -814,8 +814,7 @@
       ],
       "after": [
         "今日剩余次数",
-        "本周超级提炼次数",
-        "超级提炼1次"
+        "本周超级提炼次数"
       ],
       "observe_attempts": 5
     },
@@ -830,7 +829,6 @@
         "all": [
           "今日剩余次数",
           "本周超级提炼次数",
-          "超级提炼1次",
           "每日特惠"
         ],
         "text_regions": [
@@ -848,8 +846,7 @@
       "after": {
         "all": [
           "今日剩余次数",
-          "本周超级提炼次数",
-          "超级提炼1次"
+          "本周超级提炼次数"
         ],
         "none": [
           "每日特惠"
@@ -870,8 +867,7 @@
       "skip_if": {
         "all": [
           "今日剩余次数",
-          "本周超级提炼次数",
-          "超级提炼1次"
+          "本周超级提炼次数"
         ],
         "none": [
           "每日特惠"
@@ -899,8 +895,7 @@
       ],
       "before": [
         "今日剩余次数",
-        "本周超级提炼次数",
-        "超级提炼1次"
+        "本周超级提炼次数"
       ],
       "after": [
         "英雄",
@@ -958,8 +953,7 @@
         ],
         "before": [
           "今日剩余次数",
-          "本周超级提炼次数",
-          "超级提炼1次"
+          "本周超级提炼次数"
         ],
         "after": [
           "英雄",
@@ -1009,5 +1003,5 @@
       }
     ]
   },
-  "verification_scope": "Candidate failed at Daily-tab OCR before lab input; manual first-half-price refinement recorded separately, restored20 price observed. Other-role task not executed after entry recovery failure."
+  "verification_scope": "0.1.1: one trial role full actual first-half-price claim, price20 postcondition, ledger confirmation and city return passed. Other-role original-price skip remains to verify."
 }

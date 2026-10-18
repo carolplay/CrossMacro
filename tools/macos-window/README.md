@@ -351,3 +351,17 @@ reports carry the action identity; exit reports inherit the parent action
 version. A changed hash with an unchanged version exposes a missed version bump.
 A version number does not mean a branch was verified. Keep verification scope,
 failures, recovery outcome and evidence separate.
+
+
+Suite `0.1.1` adds isolated crop OCR for numeric regional assertions and
+`skip_if_any` for explicitly recognized alternative states. Lab page/exit
+recognition no longer depends on button OCR1/I. One trial role completed the
+actual first-half-price refinement and ledger confirmation; an under30 role
+passed the inactive VIP branch and all following visit tasks. Ordinary
+refinement remains unverified.
+
+Sustained locked operation is not certified: a later standalone CUA call failed
+because it could not be associated with a ChatGPT thread. This is a fatal
+session/permission failure, not an ordinary OCR deviation. Stop input rather
+than retrying through another tool or synthesizing trusted-session metadata.
+Short successful locked-use samples do not prove idle scheduled execution.
