@@ -386,13 +386,31 @@ def resolve_point(step, observation, size):
     if not isinstance(observation,Observation) or not observation.ocr_data:
         raise RuntimeError('Text targets require fresh local OCR geometry')
     left,top,right,bottom=target['bounds'];matches=[]
-    for line in observation.ocr_data['lines']:
+    data=observation.ocr_data;origin=[0,0];extent=size
+    if target.get('crop_ocr'):
+        if not observation.ocr_config:
+            raise RuntimeError('Cropped targets require local OCR configuration')
+        key=('target',left,top,right,bottom)
+        if key not in observation.timer_regions:
+            from PIL import Image
+            derived=Path(observation.image_path).parent/'derived';derived.mkdir(exist_ok=True)
+            stem=Path(observation.image_path).stem+'-target-'+('-'.join(map(str,target['bounds'])))
+            crop=derived/(stem+'.png')
+            with Image.open(observation.image_path) as image:
+                clipped=image.crop(target['bounds'])
+                clipped.resize((clipped.width*4,clipped.height*4),Image.Resampling.LANCZOS).save(crop)
+            raw=subprocess.run([observation.ocr_config['binary'],str(crop),observation.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+            data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
+            observation.timer_regions[key]=data
+        data=observation.timer_regions[key];origin=[left,top];extent=[right-left,bottom-top]
+        observation.visual_checks.append({'target_crop_bounds':target['bounds'],'labels':[line['text'] for line in data['lines']]})
+    for line in data['lines']:
         value=normalize(line['text']);label=normalize(target['text'])
         if target.get('regex',False):
             if not re.fullmatch(target['text'],value):continue
         elif not (value==label if target.get('exact',True) else label in value):continue
         if line.get('confidence',0)<target.get('min_confidence',.8):continue
-        x,y,w,h=line['bounds'];cx,cy=(x+w/2)*size[0],(y+h/2)*size[1]
+        x,y,w,h=line['bounds'];cx,cy=origin[0]+(x+w/2)*extent[0],origin[1]+(y+h/2)*extent[1]
         if left<=cx<=right and top<=cy<=bottom:
             offset=target.get('offset',[0,0])
             point=[round(cx)+offset[0],round(cy)+offset[1]]
@@ -455,10 +473,11 @@ def validate_workflow(workflow):
                 target=step['text_target']
                 if not isinstance(target,dict):raise ValueError('text_target must be an object')
                 bounds=target.get('bounds',[])
-                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select'}
+                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr'}
                     or not isinstance(target.get('text'),str) or not normalize(target['text'])
                     or type(target.get('exact',True)) is not bool
                     or type(target.get('regex',False)) is not bool
+                    or type(target.get('crop_ocr',False)) is not bool
                     or target.get('select','unique') not in ('unique','top-left')
                     or len(target.get('text',''))>200
                     or not isinstance(target.get('offset',[0,0]),list)
