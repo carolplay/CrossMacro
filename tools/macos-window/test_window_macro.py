@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import window_macro as macro
 
@@ -25,6 +25,21 @@ class WindowMacroTests(unittest.TestCase):
                 self.assertEqual(logs.resolve(),Path(client.js('fixture_observation')['fixture_cwd']).resolve())
             finally:client.close()
             self.assertIsNotNone(client.proc.poll())
+
+    def test_explicit_workflow_budget_applies_to_shared_and_new_backends(self):
+        flow=self.workflow();flow['execution_timeout_seconds']=240
+        for shared in (False,True):
+            with self.subTest(shared=shared), tempfile.TemporaryDirectory() as directory:
+                client=Mock();client.observe.return_value='英雄 背包 野外'
+                with patch.object(macro,'CuaMcp',return_value=client), patch.object(macro.time,'monotonic',return_value=100):
+                    macro.execute({'log_dir':directory,'timeout_seconds':45},flow,'01-check-city',backend=client if shared else None)
+                self.assertEqual(340,client.deadline)
+
+    def test_workflow_budget_rejects_unbounded_and_invalid_values(self):
+        for budget in (0,601,-1,True,1.5,'240'):
+            with self.subTest(budget=budget):
+                flow=self.workflow();flow['execution_timeout_seconds']=budget
+                with self.assertRaises(ValueError):macro.validate_workflow(flow)
 
     def test_ocr_accepts_whitespace_and_width_variants(self):
         macro.require_text('ＩＤ： １２３\n领主 档案',['ID:123','领主档案'])

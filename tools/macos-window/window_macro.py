@@ -290,6 +290,9 @@ def resolve_point(step, observation, size):
 
 
 def validate_workflow(workflow):
+    budget = workflow.get('execution_timeout_seconds', 120)
+    if type(budget) is not int or not 1 <= budget <= 600:
+        raise ValueError('execution_timeout_seconds must be an integer from1 to600')
     size = workflow['reference_size']
     if len(size) != 2 or any(type(v) is not int or v <= 0 for v in size):
         raise ValueError('reference_size must contain two positive integers')
@@ -498,8 +501,7 @@ def execute(config, workflow, step_name, backend=None):
             if client is None:
                 client = CuaMcp(config)
                 client.start()
-            else:
-                client.deadline = time.monotonic() + min(120,config.get('timeout_seconds',45))
+            client.deadline = time.monotonic() + workflow.get('execution_timeout_seconds', min(120, config.get('timeout_seconds',45)))
             inventory = {}
             for index, step in enumerate(steps):
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])

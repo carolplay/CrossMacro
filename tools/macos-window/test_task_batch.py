@@ -7,6 +7,21 @@ import task_batch as batch
 import window_macro as macro
 
 class BatchTests(unittest.TestCase):
+    def test_level_less_donation_failure_recovers_all_three_pages_then_continues(self):
+        flow=json.loads((Path(__file__).parent/'wos-alliance-donate.json').read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            backend=Mock();backend.observe.side_effect=[
+                '联盟永续 捐献奖励 次数：25/25 10,000',
+                '联盟科技 发展 领地 战斗',
+                '联盟 联盟宝箱 联盟互助 联盟科技',
+                '英雄 背包 野外','CITY']
+            with patch.object(macro,'execute',side_effect=[RuntimeError('unsupported resource label'),None,None,None,None]) as execute:
+                result=batch.run_batch({'log_dir':directory},[('donate',flow),('next',self.flow())],backend)
+            self.assertEqual(['deviation','passed'],[t['status'] for t in result['tasks']])
+            self.assertEqual(3,result['tasks'][0]['anchor']['exit_steps'])
+            self.assertEqual(['exit-donation','exit-tech','exit-alliance'],
+                [call.args[1]['steps'][0]['name'] for call in execute.call_args_list[1:4]])
+
     def test_lab_button_ocr_failure_recovers_and_runs_following_task(self):
         flow=json.loads((Path(__file__).parent/'wos-crystal-half-price.json').read_text())
         with tempfile.TemporaryDirectory() as directory:

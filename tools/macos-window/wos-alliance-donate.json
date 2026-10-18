@@ -1,7 +1,7 @@
 {
   "action_id": "wos-alliance-donate",
-  "action_version": "0.1.0",
-  "name": "WOS — recommended alliance tech, at most25 ordinary coal donations (1250each), no gems",
+  "action_version": "0.1.2",
+  "name": "WOS — recommended alliance tech, at most25 ordinary-resource donations (1250 or10000), no gems",
   "reference_size": [
     788,
     1079
@@ -129,7 +129,6 @@
       ],
       "after": [
         "捐献奖励",
-        "等级",
         "次数"
       ],
       "observe_attempts": 5
@@ -139,7 +138,6 @@
       "action": "observe",
       "before": [
         "捐献奖励",
-        "等级",
         "次数"
       ],
       "remember_numbers": [
@@ -164,7 +162,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -184,7 +181,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -192,7 +189,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -210,7 +206,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -237,7 +232,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -257,7 +251,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -265,7 +259,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -283,7 +276,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -310,7 +302,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -330,7 +321,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -338,7 +329,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -356,7 +346,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -383,7 +372,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -403,7 +391,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -411,7 +399,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -429,7 +416,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -456,7 +442,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -476,7 +461,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -484,7 +469,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -502,7 +486,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -529,7 +512,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -549,7 +531,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -557,7 +539,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -575,7 +556,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -602,7 +582,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -622,7 +601,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -630,7 +609,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -648,7 +626,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -675,7 +652,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -695,7 +671,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -703,7 +679,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -721,7 +696,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -748,7 +722,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -768,7 +741,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -776,7 +749,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -794,7 +766,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -821,7 +792,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -841,7 +811,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -849,7 +819,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -867,7 +836,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -894,7 +862,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -914,7 +881,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -922,7 +889,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -940,7 +906,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -967,7 +932,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -987,7 +951,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -995,7 +959,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1013,7 +976,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1040,7 +1002,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1060,7 +1021,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1068,7 +1029,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1086,7 +1046,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1113,7 +1072,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1133,7 +1091,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1141,7 +1099,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1159,7 +1116,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1186,7 +1142,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1206,7 +1161,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1214,7 +1169,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1232,7 +1186,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1259,7 +1212,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1279,7 +1231,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1287,7 +1239,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1305,7 +1256,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1332,7 +1282,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1352,7 +1301,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1360,7 +1309,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1378,7 +1326,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1405,7 +1352,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1425,7 +1371,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1433,7 +1379,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1451,7 +1396,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1478,7 +1422,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1498,7 +1441,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1506,7 +1449,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1524,7 +1466,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1551,7 +1492,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1571,7 +1511,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1579,7 +1519,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1597,7 +1536,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1624,7 +1562,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1644,7 +1581,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1652,7 +1589,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1670,7 +1606,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1697,7 +1632,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1717,7 +1651,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1725,7 +1659,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1743,7 +1676,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1770,7 +1702,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1790,7 +1721,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1798,7 +1729,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1816,7 +1746,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1843,7 +1772,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1863,7 +1791,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1871,7 +1799,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1889,7 +1816,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1916,7 +1842,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1936,7 +1861,7 @@
               600,
               907
             ],
-            "pattern": "(?:©)?1,?250",
+            "pattern": "(?:©)?(?:1,?250|10,?000)",
             "min_confidence": 0.3
           }
         ]
@@ -1944,7 +1869,6 @@
       "after": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1962,7 +1886,6 @@
       "skip_if": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -1985,7 +1908,6 @@
       "before": {
         "all": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "text_regions": [
@@ -2022,7 +1944,6 @@
       ],
       "before": [
         "捐献奖励",
-        "等级",
         "次数"
       ],
       "after": [
@@ -2104,7 +2025,6 @@
         ],
         "before": [
           "捐献奖励",
-          "等级",
           "次数"
         ],
         "after": [
@@ -2215,5 +2135,6 @@
     ]
   },
   "status": "partial_verified",
-  "verification_scope": "Recommended tech selected and one1250 coal donation succeeded. Next cost OCR lost a digit, stopped without guessing, and declared exits restored city. Full25 donations and final inventory assertion pending."
+  "verification_scope": "0.1.2 includes explicit240s workflow budget. 0.1.1 performed24 donations and dispatched25th before old120s workflow deadline; final outcome must be audited without repeating consumption.",
+  "execution_timeout_seconds": 240
 }

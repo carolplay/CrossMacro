@@ -67,7 +67,12 @@ Condition objects support `all`, `any`, `none`, `timer_seconds`, and
 `green_regions`; ordinary text arrays remain supported. `skip_if` explicitly
 skips a step from its current local observation and records that fact.
 `observe_attempts` (1–5) retries only post-action observations during animations,
-never the click. The runtime calls no models. CrossMacro's reported event count
+never the click. Workflows may declare `execution_timeout_seconds` (integer1–600)
+for the whole workflow after backend initialization; absent this field, the
+existing config budget (capped at120 seconds) applies. Long donation workflows
+use an explicit240-second budget rather than resetting a timer after every click.
+A timeout still stops the batch; inspect the existing outcome before any retry.
+The runtime calls no models. CrossMacro's reported event count
 may be zero because these are script actions rather than native mouse events.
 
 In macOS window-task mode the CLI preflight does not create a desktop input
