@@ -8,11 +8,18 @@
     {
       "name": "01-check-city",
       "action": "observe",
-      "before": [
-        "英雄",
-        "背包",
-        "野外"
-      ]
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
     },
     {
       "name": "02-open-profile",
@@ -367,5 +374,129 @@
       ],
       "observe_attempts": 3
     }
-  ]
+  ],
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 4,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-mail-reward",
+        "action": "click",
+        "point": [
+          390,
+          932
+        ],
+        "before": {
+          "any": [
+            "获得奖励",
+            "恭喜获得",
+            "点击任意",
+            "点击空白",
+            "点击屏幕"
+          ]
+        },
+        "after": [
+          "邮件",
+          "战争",
+          "报告",
+          "收藏"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-mail",
+        "action": "click",
+        "point": [
+          658,
+          60
+        ],
+        "before": {
+          "all": [
+            "邮件",
+            "战争",
+            "报告",
+            "收藏"
+          ],
+          "none": [
+            "获得奖励",
+            "恭喜获得",
+            "点击任意",
+            "点击空白",
+            "点击屏幕"
+          ]
+        },
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  }
 }

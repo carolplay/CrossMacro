@@ -1,0 +1,424 @@
+{
+  "name": "WOS — 盾兵 collect and ordinary-resource training (trial)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "status": "partial_verified",
+  "scope": "Known 788x1079 Chinese city overview and camp camera; preserve selected troop tier, train existing quantity up to1200. No promotion, acceleration or diamond completion. Targeted live verification required.",
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "training-overview",
+      "action": "click",
+      "point": [
+        109,
+        482
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "日常",
+        "野外"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "training-town",
+      "action": "click",
+      "point": [
+        161,
+        249
+      ],
+      "before": [
+        "日常",
+        "野外"
+      ],
+      "after": [
+        "盾兵",
+        "矛兵",
+        "射手"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "training-locate",
+      "action": "click",
+      "text_target": {
+        "text": "盾兵",
+        "bounds": [
+          180,
+          450,
+          350,
+          635
+        ],
+        "offset": [
+          150,
+          10
+        ],
+        "min_confidence": 0.5
+      },
+      "before": [
+        "日常",
+        "盾兵",
+        "矛兵",
+        "射手"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "training-collect-visible",
+      "action": "click",
+      "point": [
+        394,
+        500
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5,
+      "skip_if": [
+        "盾兵营",
+        "详情",
+        "训练"
+      ]
+    },
+    {
+      "name": "training-open-menu-1",
+      "action": "click",
+      "point": [
+        325,
+        577
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5,
+      "skip_if": [
+        "盾兵营",
+        "详情",
+        "训练"
+      ]
+    },
+    {
+      "name": "training-open-menu-2",
+      "action": "click",
+      "point": [
+        325,
+        577
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5,
+      "skip_if": [
+        "盾兵营",
+        "详情",
+        "训练"
+      ]
+    },
+    {
+      "name": "training-open-menu-3",
+      "action": "click",
+      "point": [
+        325,
+        577
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5,
+      "skip_if": [
+        "盾兵营",
+        "详情",
+        "训练"
+      ]
+    },
+    {
+      "name": "training-open",
+      "action": "click",
+      "point": [
+        495,
+        726
+      ],
+      "before": [
+        "盾兵营",
+        "详情",
+        "训练"
+      ],
+      "after": [
+        "盾兵营",
+        "矛兵营",
+        "射手营"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "training-start",
+      "action": "click",
+      "point": [
+        531,
+        950
+      ],
+      "before": {
+        "all": [
+          "盾兵营",
+          "矛兵营",
+          "射手营"
+        ],
+        "none": [
+          "训练中"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              475,
+              915,
+              625,
+              955
+            ],
+            "pattern": "训练"
+          },
+          {
+            "bounds": [
+              480,
+              805,
+              610,
+              855
+            ],
+            "pattern": "(?:[1-9][0-9]{0,2}|1[01][0-9]{2}|1200)"
+          }
+        ]
+      },
+      "after": [
+        "盾兵营",
+        "矛兵营",
+        "射手营",
+        "训练中",
+        "加速"
+      ],
+      "observe_attempts": 5,
+      "skip_if": [
+        "盾兵营",
+        "矛兵营",
+        "射手营",
+        "训练中"
+      ]
+    },
+    {
+      "name": "training-queue-checked",
+      "action": "observe",
+      "before": [
+        "盾兵营",
+        "矛兵营",
+        "射手营",
+        "训练中",
+        "加速"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "training-city",
+      "action": "click",
+      "point": [
+        133,
+        59
+      ],
+      "before": [
+        "盾兵营",
+        "矛兵营",
+        "射手营",
+        "训练中"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    }
+  ],
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 3,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-training",
+        "action": "click",
+        "point": [
+          133,
+          59
+        ],
+        "before": [
+          "盾兵营",
+          "矛兵营",
+          "射手营"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 5
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "verification_scope": "Already-running branch skipped start, verified queue and returned city in full macro. Real startup was manually recorded; completed-state branch still pending."
+}

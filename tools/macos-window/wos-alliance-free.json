@@ -4,16 +4,23 @@
     788,
     1079
   ],
-  "status": "empty_replay_verified_help_inspection_only",
+  "status": "partial_verified",
   "steps": [
     {
       "name": "01-check-city",
       "action": "observe",
-      "before": [
-        "英雄",
-        "背包",
-        "野外"
-      ]
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
     },
     {
       "name": "02-open-profile",
@@ -451,5 +458,167 @@
       "observe_attempts": 5
     }
   ],
-  "positive_branch": "Manual game claim and offline predicates verified; live macro claim still pending"
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 4,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-alliance-reward",
+        "action": "click",
+        "point": [
+          391,
+          995
+        ],
+        "before": {
+          "any": [
+            "获得奖励",
+            "点击任意位置退出"
+          ]
+        },
+        "after": [
+          "联盟宝箱",
+          "战利品宝箱",
+          "盟友赠礼"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-gifts",
+        "action": "click",
+        "point": [
+          132,
+          60
+        ],
+        "before": {
+          "all": [
+            "联盟宝箱",
+            "战利品宝箱",
+            "盟友赠礼"
+          ],
+          "none": [
+            "获得奖励",
+            "点击任意位置退出"
+          ]
+        },
+        "after": [
+          "联盟",
+          "联盟宝箱",
+          "联盟互助",
+          "联盟科技"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-help",
+        "action": "click",
+        "point": [
+          131,
+          59
+        ],
+        "before": [
+          "联盟互助",
+          "今日联盟币奖励"
+        ],
+        "after": [
+          "联盟",
+          "联盟宝箱",
+          "联盟互助",
+          "联盟科技"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-alliance",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": {
+          "all": [
+            "联盟",
+            "联盟宝箱",
+            "联盟互助",
+            "联盟科技"
+          ],
+          "none": [
+            "战利品宝箱",
+            "今日联盟币奖励"
+          ]
+        },
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "verification_scope": "Loot actual claim and empty rewards replayed; this workflow only inspects help, use separate help workflow for requests."
 }

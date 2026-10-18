@@ -4,16 +4,23 @@
     788,
     1079
   ],
-  "status": "cooldown_replay_verified",
+  "status": "partial_verified",
   "steps": [
     {
       "name": "01-check-city",
       "action": "observe",
-      "before": [
-        "英雄",
-        "背包",
-        "野外"
-      ]
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
     },
     {
       "name": "02-open-profile",
@@ -225,7 +232,8 @@
             "max": 0.08
           }
         ]
-      }
+      },
+      "observe_attempts": 5
     },
     {
       "name": "academy-close",
@@ -266,5 +274,120 @@
       "observe_attempts": 5
     }
   ],
-  "positive_branch": "Manual game claim and offline predicates verified; live macro claim still pending"
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 4,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-academy-bag",
+        "action": "click",
+        "point": [
+          668,
+          382
+        ],
+        "before": [
+          "免费领取",
+          "每日限购",
+          "点击任意空白位置关闭"
+        ],
+        "after": [
+          "无尽的旅途",
+          "天险游历",
+          "雪原游历"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-academy",
+        "action": "click",
+        "point": [
+          133,
+          59
+        ],
+        "before": {
+          "all": [
+            "无尽的旅途",
+            "天险游历",
+            "雪原游历"
+          ],
+          "none": [
+            "免费领取",
+            "每日限购"
+          ]
+        },
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "verification_scope": "Real claim occurred; one reward-animation assertion deviation recovered to city and next task continued. Cooldown full replay passed."
 }

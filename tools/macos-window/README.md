@@ -282,3 +282,32 @@ The worker needs Pillow for color checks and local enlarged timer crops; optiona
 audio matching needs NumPy. Timer-only crops may normalize missing separators
 only when all six digits remain, then validate hours/minutes/seconds and range.
 The original image is reused; no extra capture or repeated click is required.
+
+## Composable task batches
+
+`task_batch.py` exposes `run_batch(config, [(task_name, workflow), ...], backend)`.
+Each WOS workflow declares `task_contract.anchor`, bounded `exits`, and
+`max_exit_steps`. A business assertion failure remains a deviation even if its
+known exit restores the city; subsequent tasks may then run. Unknown or
+ambiguous pages never receive an exit click. Identity, lock, permission,
+window-size and ownership failures stop the batch without recovery input.
+
+This differs from native per-step CrossMacro failure policy: a caller must use
+the task batch coordinator to obtain task-level recovery. Earlier frozen GUI
+recordings do not gain this behavior merely because their source JSON changed.
+
+Step preconditions and observation steps may retry local screenshots/OCR up to the declared
+`observe_attempts` bound (1–30), without repeating any click. This covers temporary
+reward animations. VIP now has a bounded free-claim branch as well as cooldown.
+`wos-daily-earned.json` claims already-completed daily-task rewards; game-queued progress-reward overlays are drained within a fixed bound. Explicit
+per-chest clicking and doing incomplete tasks are outside its scope.
+
+
+New WOS candidates include free recruitment (key inventory snapshots), alliance
+help, ordinary-resource donation (exact regional remaining-count/cost assertions
+and an unchanged diamond inventory), and three independent training workflows.
+The training candidates preserve selected tier and quantity (at most1200), never
+click diamond completion or acceleration, and have not been validated for all
+roles/states. All game workflows require a closed city overview at their city
+anchor; a visible overview has its own declared close exit. Local game logs and
+account configuration must remain outside the repository.

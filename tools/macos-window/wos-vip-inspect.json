@@ -1,5 +1,5 @@
 {
-  "name": "WOS — VIP cooldown inspection",
+  "name": "WOS — free VIP gift or cooldown",
   "reference_size": [
     788,
     1079
@@ -8,11 +8,18 @@
     {
       "name": "01-check-city",
       "action": "observe",
-      "before": [
-        "英雄",
-        "背包",
-        "野外"
-      ]
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
     },
     {
       "name": "02-open-profile",
@@ -74,6 +81,99 @@
       "observe_attempts": 3
     },
     {
+      "name": "vip-free-claim",
+      "action": "click",
+      "text_target": {
+        "text": "领取",
+        "bounds": [
+          500,
+          675,
+          645,
+          735
+        ],
+        "min_confidence": 0.5
+      },
+      "before": {
+        "all": [
+          "VIP",
+          "每日免费礼包",
+          "领取"
+        ],
+        "green_regions": [
+          {
+            "bounds": [
+              520,
+              685,
+              630,
+              725
+            ],
+            "min": 0.12
+          }
+        ]
+      },
+      "after": {
+        "any": [
+          "每日免费礼包",
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白"
+        ]
+      },
+      "skip_if": {
+        "all": [
+          "VIP",
+          "每日免费礼包"
+        ],
+        "timer_seconds": {
+          "bounds": [
+            500,
+            675,
+            645,
+            735
+          ],
+          "min": 1,
+          "max": 86400
+        }
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "vip-reward-dismiss",
+      "action": "click",
+      "point": [
+        391,
+        930
+      ],
+      "before": {
+        "any": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白",
+          "点击屏幕"
+        ]
+      },
+      "after": [
+        "VIP",
+        "每日免费礼包"
+      ],
+      "observe_attempts": 3,
+      "skip_if": {
+        "all": [
+          "VIP",
+          "每日免费礼包"
+        ],
+        "none": [
+          "获得奖励",
+          "恭喜获得",
+          "点击任意",
+          "点击空白",
+          "点击屏幕"
+        ]
+      }
+    },
+    {
       "name": "vip-cooldown-check",
       "action": "observe",
       "before": {
@@ -111,5 +211,127 @@
       ],
       "observe_attempts": 3
     }
-  ]
+  ],
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 4,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-vip-reward",
+        "action": "click",
+        "point": [
+          391,
+          930
+        ],
+        "before": {
+          "any": [
+            "获得奖励",
+            "恭喜获得",
+            "点击任意",
+            "点击空白",
+            "点击屏幕"
+          ]
+        },
+        "after": [
+          "VIP",
+          "每日免费礼包"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-vip",
+        "action": "click",
+        "point": [
+          133,
+          59
+        ],
+        "before": {
+          "all": [
+            "VIP",
+            "每日免费礼包"
+          ],
+          "none": [
+            "获得奖励",
+            "恭喜获得",
+            "点击任意",
+            "点击空白",
+            "点击屏幕"
+          ]
+        },
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "status": "real_claim_replay_verified",
+  "verification_scope": "Free claim and cooldown replayed; filename retained for compatibility."
 }
