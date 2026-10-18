@@ -1,0 +1,396 @@
+{
+  "name": "WOS — shield camp expert badge rewards (trial)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "status": "candidate",
+  "scope": "Only the known centered camp white reward badge, max2. May also collect finished troops. Requires observed expert reward banner; no training/upgrade button. Does not cover all experts or enlistment-office rewards.",
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "open-overview",
+      "action": "click",
+      "point": [
+        109,
+        482
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": {
+        "all": [
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "日常",
+          "城镇",
+          "盾兵"
+        ]
+      },
+      "observe_attempts": 5
+    },
+    {
+      "name": "town-tab",
+      "action": "click",
+      "point": [
+        161,
+        249
+      ],
+      "before": [
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "盾兵",
+        "矛兵",
+        "射手"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "locate-shield-camp",
+      "action": "click",
+      "text_target": {
+        "text": "盾兵",
+        "bounds": [
+          180,
+          280,
+          350,
+          680
+        ],
+        "offset": [
+          150,
+          10
+        ],
+        "min_confidence": 0.5
+      },
+      "before": [
+        "盾兵",
+        "矛兵",
+        "射手"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "claim-camp-badge-1",
+      "action": "click",
+      "point": [
+        394,
+        500
+      ],
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "white_regions": [
+          {
+            "bounds": [
+              365,
+              478,
+              371,
+              505
+            ],
+            "min": 0.6
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "any": [
+          "罗慕路斯",
+          "加雷斯",
+          "为您",
+          "获得"
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "white_regions": [
+          {
+            "bounds": [
+              365,
+              478,
+              371,
+              505
+            ],
+            "max": 0.12
+          }
+        ]
+      }
+    },
+    {
+      "name": "claim-camp-badge-2",
+      "action": "click",
+      "point": [
+        394,
+        500
+      ],
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "white_regions": [
+          {
+            "bounds": [
+              365,
+              478,
+              371,
+              505
+            ],
+            "min": 0.6
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "any": [
+          "罗慕路斯",
+          "加雷斯",
+          "为您",
+          "获得"
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "white_regions": [
+          {
+            "bounds": [
+              365,
+              478,
+              371,
+              505
+            ],
+            "max": 0.12
+          }
+        ]
+      }
+    },
+    {
+      "name": "camp-badge-drained",
+      "action": "observe",
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "white_regions": [
+          {
+            "bounds": [
+              365,
+              478,
+              371,
+              505
+            ],
+            "max": 0.12
+          }
+        ]
+      },
+      "observe_attempts": 5
+    }
+  ],
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 4,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-help",
+        "action": "click",
+        "point": [
+          131,
+          59
+        ],
+        "before": [
+          "联盟互助",
+          "今日联盟币奖励"
+        ],
+        "after": [
+          "联盟",
+          "联盟宝箱",
+          "联盟互助",
+          "联盟科技"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-alliance",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": {
+          "all": [
+            "联盟",
+            "联盟宝箱",
+            "联盟互助",
+            "联盟科技"
+          ],
+          "none": [
+            "战利品宝箱",
+            "今日联盟币奖励"
+          ]
+        },
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "verification_scope": "One trial role empty-badge branch passed; second trial role had uncertain white-badge measurement, no claim input, city anchor restored and next task continued. Actual expert claim unverified."
+}

@@ -67,7 +67,7 @@ class Observation(str):
 
 def require_text(text, required):
     if isinstance(required, dict):
-        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions', 'text_regions'}
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions', 'text_regions', 'white_regions'}
         if unknown:
             raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
         require_text(text, required.get('all', []))
@@ -159,6 +159,15 @@ def require_text(text, required):
             text.visual_checks.append({'bounds':region['bounds'], 'green_fraction':ratio})
             if not region.get('min', 0) <= ratio <= region.get('max', 1):
                 raise RuntimeError('Button color condition failed: green fraction ' + str(ratio))
+        for region in required.get('white_regions', []):
+            if not isinstance(text,Observation):raise RuntimeError('Color conditions require a fresh image observation')
+            from PIL import Image
+            with Image.open(text.image_path) as image:
+                pixels=image.convert('RGB').crop(region['bounds']).tobytes()
+            ratio=sum(min(r,g,b)>225 and max(r,g,b)-min(r,g,b)<25
+                      for r,g,b in zip(pixels[::3],pixels[1::3],pixels[2::3]))/(len(pixels)//3)
+            text.visual_checks.append({'bounds':region['bounds'],'white_fraction':ratio})
+            if not region.get('min',0)<=ratio<=region.get('max',1):raise RuntimeError('White badge condition failed')
         return
     missing = [s for s in required if not s or normalize(s) not in normalize(text)]
     if missing:
@@ -172,7 +181,7 @@ def validate_condition(condition, size):
         return
     if not isinstance(condition, dict) or not condition:
         raise ValueError('Expected OCR text list or condition object')
-    if set(condition) - {'all','any','none','timer_seconds','green_regions','text_regions'}:
+    if set(condition) - {'all','any','none','timer_seconds','green_regions','text_regions','white_regions'}:
         raise ValueError('Unknown local observation condition')
     if not condition.get('all') and not condition.get('any'):
         raise ValueError('Conditions require a positive page-text assertion')
@@ -192,7 +201,7 @@ def validate_condition(condition, size):
                 or not 0 <= bounds[0] < bounds[2] <= size[0]
                 or not 0 <= bounds[1] < bounds[3] <= size[1]):
                 raise ValueError('Invalid timer OCR region')
-    for region in condition.get('green_regions',[]):
+    for region in condition.get('green_regions',[])+condition.get('white_regions',[]):
         bounds = region['bounds']
         if (len(bounds) != 4 or any(type(v) is not int for v in bounds)
             or not 0 <= bounds[0] < bounds[2] <= size[0]
@@ -265,7 +274,7 @@ def validate_workflow(workflow):
         if step['name'] in names:
             raise ValueError('Step names must be unique')
         names.add(step['name'])
-        if step['action'] not in ('observe', 'click') or not step.get('before'):
+        if step['action'] not in ('observe', 'click', 'key') or not step.get('before'):
             raise ValueError('Every step requires an observe/click action and OCR preconditions')
         for key in ('before','after','skip_if'):
             if key in step:
@@ -300,6 +309,11 @@ def validate_workflow(workflow):
                 raise ValueError('Click is outside reference window')
             if not step.get('after'):
                 raise ValueError('Every click requires OCR completion conditions')
+        if step['action'] == 'key':
+            if (step.get('key') not in ('Up','Down','Left','Right')
+                or type(step.get('duration_ms',600)) is not int
+                or not 1<=step.get('duration_ms',600)<=1000 or not step.get('after')):
+                raise ValueError('Key steps require a bounded navigation arrow and completion conditions')
         attempts = step.get('observe_attempts', 1)
         if type(attempts) is not int or not 1 <= attempts <= 30:
             raise ValueError('observe_attempts must be between 1 and 30')
@@ -371,7 +385,7 @@ class CuaMcp:
                 # accept a different connector, application, or capability.
                 allowed = (meta.get('connector_id') == 'computer-use'
                     and meta.get('tool_params',{}).get('app') == self.config['target']['bundle_id']
-                    and meta.get('tool_name') in set(self.config.get('authorized_tools',[])) & {'get_app_state','get_app_screenshot','click'})
+                    and meta.get('tool_name') in set(self.config.get('authorized_tools',[])) & {'get_app_state','get_app_screenshot','click','press_key'})
                 self.send({'jsonrpc':'2.0','id':message['id'],'result':
                     {'action':'accept','content':{}} if allowed else {'action':'decline'}})
                 continue
@@ -504,6 +518,16 @@ def execute(config, workflow, step_name, backend=None):
                     if item['name'] not in inventory or value != inventory[item['name']]:
                         raise FatalExecutionError('Inventory changed unexpectedly: ' + item['name'])
                     entry.setdefault('unchanged_numbers', {})[item['name']] = value
+                if step['action'] == 'key':
+                    entry['key_unix']=time.time()
+                    client.js('await target.pressKey(%s, {durationMs:%d}); await target.getAXState();' %
+                              (json.dumps(step['key']),step.get('duration_ms',600)))
+                    for attempt in range(step.get('observe_attempts',1)):
+                        after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])
+                        try:require_text(after,step['after']);break
+                        except RuntimeError:
+                            if attempt+1==step.get('observe_attempts',1):raise
+                    entry.update(after_verified=True,after_observations=attempt+1)
                 if step['action'] == 'click':
                     point=resolve_point(step,before,workflow['reference_size'])
                     entry['resolved_point']=point

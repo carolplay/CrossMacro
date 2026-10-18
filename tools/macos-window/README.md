@@ -311,3 +311,15 @@ click diamond completion or acceleration, and have not been validated for all
 roles/states. All game workflows require a closed city overview at their city
 anchor; a visible overview has its own declared close exit. Local game logs and
 account configuration must remain outside the repository.
+
+
+Next-round candidates (`wos-crystal-ordinary.json`,
+`wos-crystal-half-price.json`, `wos-expert-camp-rewards.json`) are separate from
+the stable visit. The lab navigation has a recorded Daily-tab OCR failure and
+has not passed full playback. Expert coverage is limited to a calibrated camp
+reward badge, including an empty-state branch; it is not all Expert rewards.
+No bank automation is implemented: the bank tab entry remains unresolved.
+Navigation `key` steps accept only four arrows for at most1000ms, require fresh
+page preconditions and postconditions, and never retry input. The local client
+configuration must explicitly authorize `press_key` to use them. White-badge
+pixel conditions require both page text and calibrated bounds.

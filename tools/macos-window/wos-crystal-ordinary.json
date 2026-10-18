@@ -1,0 +1,1132 @@
+{
+  "name": "WOS — ordinary fire crystal refinements (up to8)",
+  "reference_size": [
+    788,
+    1079
+  ],
+  "status": "candidate",
+  "scope": "Consumes ordinary meat/wood/coal/iron, not free. Authorized collect-all policy required. Up to8 current daily attempts only; no super-refining.",
+  "steps": [
+    {
+      "name": "01-check-city",
+      "action": "observe",
+      "before": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建造队列",
+          "游历补给"
+        ]
+      }
+    },
+    {
+      "name": "02-open-profile",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "领主档案"
+      ]
+    },
+    {
+      "name": "03-verify-identity",
+      "action": "observe",
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true
+    },
+    {
+      "name": "04-return-city",
+      "action": "click",
+      "point": [
+        138,
+        65
+      ],
+      "before": [
+        "领主档案"
+      ],
+      "verify_identity": true,
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "open-overview",
+      "action": "click",
+      "point": [
+        109,
+        482
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "日常",
+        "野外"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "daily-tab",
+      "action": "click",
+      "point": [
+        402,
+        249
+      ],
+      "before": [
+        "日常",
+        "野外"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "find-lab-01",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-02",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-03",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-04",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-05",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-06",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-07",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-08",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-09",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-10",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-11",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "find-lab-12",
+      "action": "key",
+      "key": "Up",
+      "duration_ms": 600,
+      "before": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "after": [
+        "日常",
+        "英雄",
+        "背包"
+      ],
+      "skip_if": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "observe_attempts": 3
+    },
+    {
+      "name": "locate-lab",
+      "action": "click",
+      "text_target": {
+        "text": "炼晶实验室",
+        "exact": false,
+        "bounds": [
+          180,
+          280,
+          410,
+          740
+        ],
+        "offset": [
+          150,
+          10
+        ],
+        "min_confidence": 0.3
+      },
+      "before": {
+        "all": [
+          "日常",
+          "英雄",
+          "背包"
+        ],
+        "any": [
+          "提炼次数",
+          "超级提炼优惠"
+        ]
+      },
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "open-lab",
+      "action": "click",
+      "point": [
+        394,
+        482
+      ],
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "after": [
+        "今日剩余次数",
+        "本周超级提炼次数",
+        "超级提炼1次"
+      ],
+      "observe_attempts": 5
+    },
+    {
+      "name": "ordinary-refine-01",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-02",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-03",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-04",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-05",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-06",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-07",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-refine-08",
+      "action": "click",
+      "point": [
+        394,
+        569
+      ],
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[1-8]"
+          }
+        ]
+      },
+      "after": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:[0-8]"
+          }
+        ]
+      },
+      "observe_attempts": 5,
+      "skip_if": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary-exhausted",
+      "action": "observe",
+      "before": {
+        "all": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "text_regions": [
+          {
+            "bounds": [
+              285,
+              485,
+              470,
+              530
+            ],
+            "pattern": "今日剩余次数:0"
+          }
+        ]
+      },
+      "observe_attempts": 5
+    },
+    {
+      "name": "lab-city",
+      "action": "click",
+      "point": [
+        133,
+        59
+      ],
+      "before": [
+        "今日剩余次数",
+        "本周超级提炼次数",
+        "超级提炼1次"
+      ],
+      "after": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "observe_attempts": 5
+    }
+  ],
+  "task_contract": {
+    "entry_anchor": "city",
+    "exit_anchor": "city",
+    "anchor": {
+      "all": [
+        "英雄",
+        "背包",
+        "野外"
+      ],
+      "none": [
+        "日常",
+        "建造队列",
+        "游历补给"
+      ]
+    },
+    "max_exit_steps": 3,
+    "exits": [
+      {
+        "name": "exit-profile",
+        "action": "click",
+        "point": [
+          132,
+          59
+        ],
+        "before": [
+          "领主档案"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 3,
+        "verify_identity": true
+      },
+      {
+        "name": "exit-lab",
+        "action": "click",
+        "point": [
+          133,
+          59
+        ],
+        "before": [
+          "今日剩余次数",
+          "本周超级提炼次数",
+          "超级提炼1次"
+        ],
+        "after": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "observe_attempts": 5
+      },
+      {
+        "name": "exit-city-overview",
+        "action": "click",
+        "point": [
+          482,
+          482
+        ],
+        "before": {
+          "all": [
+            "日常",
+            "英雄",
+            "背包"
+          ],
+          "any": [
+            "盾兵",
+            "矛兵",
+            "射手",
+            "游历补给"
+          ]
+        },
+        "after": {
+          "all": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "none": [
+            "日常",
+            "建造队列",
+            "游历补给"
+          ]
+        },
+        "observe_attempts": 5
+      }
+    ]
+  },
+  "verification_scope": "Candidate failed at Daily-tab OCR before lab input; manual ordinary-resource refinement recorded separately. No full macro pass."
+}

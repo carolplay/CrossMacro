@@ -15,7 +15,7 @@ def check(paths, expected_steps=()):
         screens+=sum(1 for p in path.parent.iterdir() if p.suffix in ('.jpg','.png'))
         ocr+=len(list(path.parent.rglob('*-ocr.json')))
         for step in report.get('steps',[]):
-            if step.get('click_unix') and not step.get('after_verified'):
+            if (step.get('click_unix') or step.get('key_unix')) and not step.get('after_verified'):
                 next_step=following[id(step)];required=step.get('deferred_after_conditions')
                 seen=next_step.get('verified_before_conditions')
                 if (step.get('after_deferred_to_check') and isinstance(required,list) and isinstance(seen,list)
