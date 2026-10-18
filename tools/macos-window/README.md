@@ -97,6 +97,14 @@ certify that all business branches have passed.
 a local UTC-day ledger keyed by hashed role identity. Pending reservations block
 repeat attempts after uncertain outcomes. Keep ledgers outside Git.
 
+Integer inventory reads retry only the same calibrated image crop when full-frame
+OCR is missing or ambiguous; an unreadable or ambiguous crop still stops input.
+Steps may declare `budget_checks` with `bounds`, `min`, and `max_config`. The
+selected integer must be within the configured local cap before input; a missing,
+invalid or exceeded cap fails closed. This is a generic configuration guard;
+game-specific amounts and strategy belong to the external workflow package.
+Derived crop OCR results use `-ocr.json` names so the offline auditor counts them.
+
 ## Audio experiments
 
 `audio-tap.m` uses macOS14.2+ Core Audio process taps. Build in a stable local

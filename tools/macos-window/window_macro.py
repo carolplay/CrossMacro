@@ -50,6 +50,29 @@ def number_in_region(observation, bounds):
         if (left <= cx <= right and top <= cy <= bottom and line.get('confidence', 0) >= .5
             and re.fullmatch(r'[0-9]+', value)):
             values.append(int(value))
+    if len(values) != 1 and observation.ocr_config:
+        # Read the same calibrated pixels in isolation before declaring an OCR
+        # deviation. Never capture another image or repeat a business action.
+        key = ('inventory', *bounds)
+        if key not in observation.timer_regions:
+            from PIL import Image
+            derived = Path(observation.image_path).parent / 'derived'
+            derived.mkdir(exist_ok=True)
+            crop = derived / (Path(observation.image_path).stem + '-inventory-' + '-'.join(map(str,bounds)) + '.png')
+            with Image.open(observation.image_path) as image:
+                region = image.crop(bounds)
+                region.resize((region.width*4,region.height*4),Image.Resampling.LANCZOS).save(crop)
+            raw = subprocess.run([observation.ocr_config['binary'],str(crop),observation.ocr_config['language']],
+                                 capture_output=True,text=True,check=True,timeout=15)
+            data = json.loads(raw.stdout)
+            crop.with_name(crop.stem + '-ocr.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
+            observation.timer_regions[key] = data['lines']
+        values = []
+        for line in observation.timer_regions[key]:
+            value = normalize(line['text']).replace(',', '').rstrip('+')
+            if line.get('confidence',0) >= .5 and re.fullmatch(r'[0-9]+',value):
+                values.append(int(value))
+        observation.visual_checks.append({'inventory_crop_bounds':bounds,'integer_candidates':values})
     if len(values) != 1:
         raise RuntimeError('Expected exactly one inventory integer in region')
     return values[0]
@@ -87,7 +110,7 @@ def require_text(text, required):
                 raw = subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],
                                      capture_output=True,text=True,check=True,timeout=15)
                 data = json.loads(raw.stdout)
-                crop.with_suffix('.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
+                crop.with_name(crop.stem + '-ocr.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
                 text.timer_regions[key] = [line['text'] for line in data['lines'] if line.get('confidence',0) >= .5]
             labels = text.timer_regions[key]
             page_text += '\n' + '\n'.join(labels)
@@ -338,6 +361,19 @@ def validate_workflow(workflow):
                 validate_condition(step[key],size)
         for condition in step.get('skip_if_any', []):
             validate_condition(condition,size)
+        checks = step.get('budget_checks', [])
+        if not isinstance(checks,list) or len(checks)>8:
+            raise ValueError('Invalid local budget checks')
+        for item in checks:
+            bounds = item.get('bounds', [])
+            if (set(item)-{'bounds','max_config','min'} or len(bounds)!=4
+                or any(type(v) is not int for v in bounds)
+                or not 0 <= bounds[0] < bounds[2] <= size[0]
+                or not 0 <= bounds[1] < bounds[3] <= size[1]
+                or not isinstance(item.get('max_config'),str)
+                or not re.fullmatch(r'[a-z][a-z0-9_]{0,79}',item['max_config'])
+                or type(item.get('min',0)) is not int or item.get('min',0)<0):
+                raise ValueError('Invalid local budget check')
         if step['action'] == 'click':
             if sum(key in step for key in ('point','text_target','green_target'))!=1:
                 raise ValueError('A click requires exactly one point, text_target or green_target')
@@ -574,6 +610,15 @@ def execute(config, workflow, step_name, backend=None):
                          'identity_verified':bool(step.get('verify_identity')),
                          'visual_checks':getattr(before,'visual_checks',[])}
                 report['steps'].append(entry)
+                for item in step.get('budget_checks', []):
+                    limit = config.get(item['max_config'])
+                    if type(limit) is not int or limit < item.get('min',0):
+                        raise RuntimeError('Missing or invalid local budget: ' + item['max_config'])
+                    value = number_in_region(before,item['bounds'])
+                    if not item.get('min',0) <= value <= limit:
+                        raise RuntimeError('Selected amount exceeds local budget: ' + item['max_config'])
+                    entry.setdefault('budget_checks',[]).append({'config_key':item['max_config'],
+                        'selected':value,'maximum':limit})
                 for item in step.get('remember_numbers', []):
                     inventory[item['name']] = number_in_region(before, item['bounds'])
                     entry.setdefault('remembered_numbers', {})[item['name']] = inventory[item['name']]

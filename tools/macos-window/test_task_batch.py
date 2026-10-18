@@ -198,3 +198,40 @@ class PageCropTests(unittest.TestCase):
         for regions in [[],[[0,0,101,20]],[[0,0,100,20]]*5]:
             with self.assertRaises(ValueError):
                 macro.validate_condition({'all':['PAGE'],'page_text_regions':regions},[100,100])
+
+class InventoryCropTests(unittest.TestCase):
+    def test_missing_full_frame_counter_uses_cached_crop_and_rejects_ambiguity(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'keys.png';Image.new('RGB',(100,100)).save(path)
+            observation=macro.Observation('PAGE',path,{'width':100,'height':100,'lines':[]},
+                {'binary':'fixture','language':'zh-Hans'})
+            output=Mock(stdout=json.dumps({'lines':[{'text':'1,234','confidence':1}]}))
+            with patch.object(macro.subprocess,'run',return_value=output) as ocr:
+                self.assertEqual(1234,macro.number_in_region(observation,[0,0,50,20]))
+                self.assertEqual(1234,macro.number_in_region(observation,[0,0,50,20]))
+                self.assertEqual(1,ocr.call_count)
+                output.stdout=json.dumps({'lines':[{'text':'12','confidence':1},{'text':'34','confidence':1}]})
+                with self.assertRaisesRegex(RuntimeError,'exactly one inventory'):
+                    macro.number_in_region(observation,[50,0,100,20])
+
+class BudgetTests(unittest.TestCase):
+    def test_local_budget_gates_input_and_fails_closed_when_missing_or_exceeded(self):
+        flow={'reference_size':[100,100],'steps':[{'name':'deposit','action':'click','point':[10,10],
+              'before':['DEPOSIT'],'after':['ACTIVE'],
+              'budget_checks':[{'bounds':[0,0,20,20],'max_config':'virtual_limit','min':100}]}]}
+        for limit,amount,allowed in [(6500,6500,True),(6500,6501,False),(None,100,False),(True,100,False)]:
+            with self.subTest(limit=limit,amount=amount), tempfile.TemporaryDirectory() as directory:
+                backend=Mock();backend.observe.side_effect=['DEPOSIT','ACTIVE']
+                config={'log_dir':directory,'virtual_limit':limit}
+                with patch.object(macro,'number_in_region',return_value=amount):
+                    if allowed:macro.execute(config,flow,'all',backend=backend)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError,'budget'):
+                            macro.execute(config,flow,'all',backend=backend)
+                self.assertEqual(int(allowed),backend.js.call_count)
+
+    def test_budget_regions_cannot_escape_window(self):
+        flow={'reference_size':[100,100],'steps':[{'name':'check','action':'observe','before':['PAGE'],
+              'budget_checks':[{'bounds':[0,0,101,20],'max_config':'limit'}]}]}
+        with self.assertRaises(ValueError):macro.validate_workflow(flow)
