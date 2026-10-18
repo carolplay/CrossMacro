@@ -34,7 +34,7 @@ def normalize(text):
     return ''.join(unicodedata.normalize('NFKC', text).translate(str.maketrans({'級':'级'})).split())
 
 
-def number_in_region(observation, bounds):
+def number_in_region(observation, bounds, min_confidence=.5):
     """Read exactly one integer from a calibrated inventory region."""
     if not isinstance(observation, Observation) or not observation.ocr_data:
         raise RuntimeError('Inventory checks require fresh local OCR geometry')
@@ -47,7 +47,7 @@ def number_in_region(observation, bounds):
         # The game's adjacent plus icon is sometimes merged into the number.
         value = normalize(line['text']).replace(',', '')
         if value.endswith('+'): value = value[:-1]
-        if (left <= cx <= right and top <= cy <= bottom and line.get('confidence', 0) >= .5
+        if (left <= cx <= right and top <= cy <= bottom and line.get('confidence', 0) >= min_confidence
             and re.fullmatch(r'[0-9]+', value)):
             values.append(int(value))
     if len(values) != 1 and observation.ocr_config:
@@ -70,7 +70,7 @@ def number_in_region(observation, bounds):
         values = []
         for line in observation.timer_regions[key]:
             value = normalize(line['text']).replace(',', '').rstrip('+')
-            if line.get('confidence',0) >= .5 and re.fullmatch(r'[0-9]+',value):
+            if line.get('confidence',0) >= min_confidence and re.fullmatch(r'[0-9]+',value):
                 values.append(int(value))
         observation.visual_checks.append({'inventory_crop_bounds':bounds,'integer_candidates':values})
     if len(values) != 1:
@@ -91,7 +91,7 @@ class Observation(str):
 
 def require_text(text, required):
     if isinstance(required, dict):
-        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions', 'text_regions', 'white_regions', 'page_text_regions'}
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'timer_regions', 'green_regions', 'red_regions', 'text_regions', 'white_regions', 'page_text_regions', 'template_regions'}
         if unknown:
             raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
         page_text = str(text)
@@ -116,6 +116,13 @@ def require_text(text, required):
             page_text += '\n' + '\n'.join(labels)
             text.visual_checks.append({'page_crop_bounds':bounds,'labels':labels})
         require_text(page_text, required.get('all', []))
+        for timer in required.get('timer_regions',[]):
+            require_text(text,{'timer_seconds':timer})
+        for spec in required.get('template_regions', []):
+            from image_targets import match
+            found=match(text,spec)['score'] >= spec.get('min_score',.85)
+            if found != spec.get('present',True):
+                raise RuntimeError('Image template presence condition failed: '+spec['template'])
         value = normalize(page_text)
         choices = required.get('any', [])
         if choices and not any(normalize(s) in value for s in choices):
@@ -226,6 +233,15 @@ def require_text(text, required):
             text.visual_checks.append({'bounds':region['bounds'], 'green_fraction':ratio})
             if not region.get('min', 0) <= ratio <= region.get('max', 1):
                 raise RuntimeError('Button color condition failed: green fraction ' + str(ratio))
+        for region in required.get('red_regions', []):
+            if not isinstance(text,Observation):raise RuntimeError('Color conditions require a fresh image')
+            from PIL import Image
+            with Image.open(text.image_path) as image:
+                pixels=image.convert('RGB').crop(region['bounds']).tobytes()
+            ratio=sum(r>140 and r>1.4*g and r>1.4*b
+                      for r,g,b in zip(pixels[::3],pixels[1::3],pixels[2::3]))/(len(pixels)//3)
+            text.visual_checks.append({'bounds':region['bounds'],'red_fraction':ratio})
+            if not region.get('min',0)<=ratio<=region.get('max',1):raise RuntimeError('Red indicator condition failed')
         for region in required.get('white_regions', []):
             if not isinstance(text,Observation):raise RuntimeError('Color conditions require a fresh image observation')
             from PIL import Image
@@ -241,6 +257,23 @@ def require_text(text, required):
         raise RuntimeError('OCR condition failed: ' + ', '.join(missing))
 
 
+def validate_image_spec(spec,size,target=False):
+    allowed={'template','bounds','min_score','mode'} | ({'offset'} if target else {'present'})
+    bounds=spec.get('bounds',[])
+    if (set(spec)-allowed or not isinstance(spec.get('template'),str)
+        or not re.fullmatch(r'[a-z0-9_-]{1,80}',spec['template'])
+        or len(bounds)!=4 or any(type(v) is not int for v in bounds)
+        or not 0<=bounds[0]<bounds[2]<=size[0] or not 0<=bounds[1]<bounds[3]<=size[1]
+        or type(spec.get('min_score',.85)) not in (int,float)
+        or not .6<=spec.get('min_score',.85)<=1
+        or spec.get('mode','white-glyph') not in ('white-glyph','grayscale')
+        or type(spec.get('present',True)) is not bool):
+        raise ValueError('Invalid bounded image template specification')
+    offset=spec.get('offset',[0,0])
+    if not isinstance(offset,list) or len(offset)!=2 or any(type(v) is not int or abs(v)>max(size) for v in offset):
+        raise ValueError('Invalid image template offset')
+
+
 def validate_condition(condition, size):
     if isinstance(condition, list):
         if not condition or any(not isinstance(s,str) or not s for s in condition):
@@ -248,10 +281,22 @@ def validate_condition(condition, size):
         return
     if not isinstance(condition, dict) or not condition:
         raise ValueError('Expected OCR text list or condition object')
-    if set(condition) - {'all','any','none','timer_seconds','green_regions','text_regions','white_regions','page_text_regions'}:
+    if set(condition) - {'all','any','none','timer_seconds','timer_regions','green_regions','red_regions','text_regions','white_regions','page_text_regions','template_regions'}:
         raise ValueError('Unknown local observation condition')
     if not condition.get('all') and not condition.get('any'):
         raise ValueError('Conditions require a positive page-text assertion')
+    if 'timer_regions' in condition:
+        regions=condition['timer_regions']
+        if not isinstance(regions,list) or not 1<=len(regions)<=4:
+            raise ValueError('Expected one to four timer regions')
+        for timer in regions:
+            validate_condition({'all':['PAGE'],'timer_seconds':timer},size)
+    if 'template_regions' in condition:
+        regions=condition['template_regions']
+        if not isinstance(regions,list) or not 1<=len(regions)<=4:
+            raise ValueError('Image conditions require one to four templates')
+        for spec in regions:
+            validate_image_spec(spec,size)
     for key in ('all','any','none'):
         if key in condition:
             validate_condition(condition[key],size)
@@ -277,7 +322,7 @@ def validate_condition(condition, size):
                 or not 0 <= bounds[0] < bounds[2] <= size[0]
                 or not 0 <= bounds[1] < bounds[3] <= size[1]):
                 raise ValueError('Invalid timer OCR region')
-    for region in condition.get('green_regions',[])+condition.get('white_regions',[]):
+    for region in condition.get('green_regions',[])+condition.get('white_regions',[])+condition.get('red_regions',[]):
         bounds = region['bounds']
         if (len(bounds) != 4 or any(type(v) is not int for v in bounds)
             or not 0 <= bounds[0] < bounds[2] <= size[0]
@@ -298,6 +343,15 @@ def validate_condition(condition, size):
 
 def resolve_point(step, observation, size):
     """Resolve one bounded OCR label locally; ambiguity never sends input."""
+    if step.get('image_target'):
+        from image_targets import match
+        spec=step['image_target'];result=match(observation,spec)
+        if result['score'] < spec.get('min_score',.85):
+            raise RuntimeError('Image target below threshold: '+spec['template'])
+        point=[a+b for a,b in zip(result['point'],spec.get('offset',[0,0]))]
+        if not all(0<=v<size[i] for i,v in enumerate(point)):
+            raise RuntimeError('Image target outside reference window')
+        return point
     if step.get('green_target'):
         from PIL import Image
         target=step['green_target'];left,top,right,bottom=target['bounds']
@@ -329,7 +383,9 @@ def resolve_point(step, observation, size):
     left,top,right,bottom=target['bounds'];matches=[]
     for line in observation.ocr_data['lines']:
         value=normalize(line['text']);label=normalize(target['text'])
-        if not (value==label if target.get('exact',True) else label in value):continue
+        if target.get('regex',False):
+            if not re.fullmatch(target['text'],value):continue
+        elif not (value==label if target.get('exact',True) else label in value):continue
         if line.get('confidence',0)<target.get('min_confidence',.8):continue
         x,y,w,h=line['bounds'];cx,cy=(x+w/2)*size[0],(y+h/2)*size[1]
         if left<=cx<=right and top<=cy<=bottom:
@@ -338,6 +394,8 @@ def resolve_point(step, observation, size):
             if not all(0 <= v < size[i] for i,v in enumerate(point)):
                 raise RuntimeError('OCR target resolves outside the reference window')
             matches.append(point)
+    if target.get('select')=='top-left' and matches:
+        return min(matches,key=lambda point:(point[1],point[0]))
     if len(matches)!=1:raise RuntimeError('Expected exactly one confident text target; found '+str(len(matches)))
     return matches[0]
 
@@ -353,10 +411,12 @@ def validate_workflow(workflow):
     for step in workflow['steps']:
         if step['name'] in names:
             raise ValueError('Step names must be unique')
+        if step.get('skip_if_step_skipped') is not None and step['skip_if_step_skipped'] not in names:
+            raise ValueError('Skip dependency must reference an earlier step')
         names.add(step['name'])
         if step['action'] not in ('observe', 'click', 'key') or not step.get('before'):
             raise ValueError('Every step requires an observe/click action and OCR preconditions')
-        for key in ('before','after','skip_if'):
+        for key in ('before','after','skip_if','finish_if'):
             if key in step:
                 validate_condition(step[key],size)
         for condition in step.get('skip_if_any', []):
@@ -375,8 +435,10 @@ def validate_workflow(workflow):
                 or type(item.get('min',0)) is not int or item.get('min',0)<0):
                 raise ValueError('Invalid local budget check')
         if step['action'] == 'click':
-            if sum(key in step for key in ('point','text_target','green_target'))!=1:
+            if sum(key in step for key in ('point','text_target','green_target','image_target'))!=1:
                 raise ValueError('A click requires exactly one point, text_target or green_target')
+            if 'image_target' in step:
+                validate_image_spec(step['image_target'],size,target=True)
             if 'green_target' in step:
                 target=step['green_target'];bounds=target.get('bounds',[]);offset=target.get('offset',[0,0])
                 if (set(target)-{'bounds','offset','min_pixels','max_pixels'} or len(bounds)!=4
@@ -388,9 +450,12 @@ def validate_workflow(workflow):
                 target=step['text_target']
                 if not isinstance(target,dict):raise ValueError('text_target must be an object')
                 bounds=target.get('bounds',[])
-                if (set(target)-{'text','bounds','exact','min_confidence','offset'}
+                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select'}
                     or not isinstance(target.get('text'),str) or not normalize(target['text'])
                     or type(target.get('exact',True)) is not bool
+                    or type(target.get('regex',False)) is not bool
+                    or target.get('select','unique') not in ('unique','top-left')
+                    or len(target.get('text',''))>200
                     or not isinstance(target.get('offset',[0,0]),list)
                     or len(target.get('offset',[0,0])) != 2
                     or any(type(v) is not int or abs(v)>max(size) for v in target.get('offset',[0,0]))
@@ -399,6 +464,7 @@ def validate_workflow(workflow):
                     or not 0<=bounds[0]<bounds[2]<=size[0]
                     or not 0<=bounds[1]<bounds[3]<=size[1]):
                     raise ValueError('Invalid bounded OCR text target')
+                if target.get('regex',False):re.compile(target['text'])
             point = step.get('point',[0,0])
             if len(point) != 2 or any(type(v) is not int or not 0 <= v < size[i] for i, v in enumerate(point)):
                 raise ValueError('Click is outside reference window')
@@ -406,6 +472,8 @@ def validate_workflow(workflow):
                 raise ValueError('Every click requires OCR completion conditions')
         if step['action'] == 'key':
             if (step.get('key') not in ('Up','Down','Left','Right')
+                or type(step.get('key_count',1)) is not int
+                or not 1 <= step.get('key_count',1) <= 20
                 or type(step.get('duration_ms',600)) is not int
                 or not 1<=step.get('duration_ms',600)<=1000 or not step.get('after')):
                 raise ValueError('Key steps require a bounded navigation arrow and completion conditions')
@@ -414,10 +482,12 @@ def validate_workflow(workflow):
         attempts = step.get('observe_attempts', 1)
         if type(attempts) is not int or not 1 <= attempts <= 30:
             raise ValueError('observe_attempts must be between 1 and 30')
-        for key in ('remember_numbers', 'unchanged_numbers'):
+        for key in ('remember_numbers', 'unchanged_numbers', 'increased_numbers'):
             for item in step.get(key, []):
                 bounds = item.get('bounds', [])
                 if (not isinstance(item.get('name'), str) or not item['name']
+                    or type(item.get('min_confidence',.5)) not in (int,float)
+                    or not .3 <= item.get('min_confidence',.5) <= 1
                     or len(bounds) != 4 or any(type(v) is not int for v in bounds)
                     or not 0 <= bounds[0] < bounds[2] <= size[0]
                     or not 0 <= bounds[1] < bounds[3] <= size[1]):
@@ -526,7 +596,7 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise FatalExecutionError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US')})
+        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
 
     def close(self):
         if self.proc.poll() is None:
@@ -571,8 +641,21 @@ def execute(config, workflow, step_name, backend=None):
             inventory = {}
             for index, step in enumerate(steps):
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
-                skipped = False
+                if step.get('finish_if'):
+                    try:
+                        require_text(before,step['finish_if'])
+                    except RuntimeError:
+                        pass
+                    else:
+                        report['steps'].append({'name':step['name'],'finished_early':True,
+                            'reason':'Declared completion condition matched',
+                            'visual_checks':getattr(before,'visual_checks',[])})
+                        break
+                skipped = any(entry['name'] == step.get('skip_if_step_skipped') and entry.get('skipped')
+                              for entry in report['steps'])
                 for attempt in range(step.get('observe_attempts', 1)):
+                    if skipped:
+                        break
                     skip_conditions=step.get('skip_if_any', []) + ([step['skip_if']] if step.get('skip_if') else [])
                     for skip_condition in skip_conditions:
                         try:
@@ -620,17 +703,31 @@ def execute(config, workflow, step_name, backend=None):
                     entry.setdefault('budget_checks',[]).append({'config_key':item['max_config'],
                         'selected':value,'maximum':limit})
                 for item in step.get('remember_numbers', []):
-                    inventory[item['name']] = number_in_region(before, item['bounds'])
+                    inventory[item['name']] = number_in_region(before, item['bounds'], item.get('min_confidence',.5))
                     entry.setdefault('remembered_numbers', {})[item['name']] = inventory[item['name']]
                 for item in step.get('unchanged_numbers', []):
-                    value = number_in_region(before, item['bounds'])
+                    value = number_in_region(before, item['bounds'], item.get('min_confidence',.5))
                     if item['name'] not in inventory or value != inventory[item['name']]:
                         raise FatalExecutionError('Inventory changed unexpectedly: ' + item['name'])
                     entry.setdefault('unchanged_numbers', {})[item['name']] = value
+                for item in step.get('increased_numbers', []):
+                    for read_attempt in range(step.get('observe_attempts',1)):
+                        try:
+                            value = number_in_region(before,item['bounds'],item.get('min_confidence',.5))
+                            if item['name'] not in inventory or value <= inventory[item['name']]:
+                                raise RuntimeError('Expected inventory increase: '+item['name'])
+                            break
+                        except RuntimeError:
+                            if read_attempt+1 == step.get('observe_attempts',1):raise
+                            before=client.observe(folder,'%02d-increase-retry-%02d'%(index,read_attempt+1),workflow['reference_size'])
+                            require_text(before,step['before'])
+                    entry.setdefault('increased_numbers',{})[item['name']] = {
+                        'before':inventory[item['name']], 'after':value,
+                        'increase':value-inventory[item['name']], 'read_attempts':read_attempt+1}
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
-                    client.js('await target.pressKey(%s, {durationMs:%d}); await target.getAXState();' %
-                              (json.dumps(step['key']),step.get('duration_ms',600)))
+                    client.js('for(let i=0;i<%d;i++) await target.pressKey(%s, {durationMs:%d}); await target.getAXState();' %
+                              (step.get('key_count',1),json.dumps(step['key']),step.get('duration_ms',600)))
                     for attempt in range(step.get('observe_attempts',1)):
                         after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])
                         try:require_text(after,step['after']);break

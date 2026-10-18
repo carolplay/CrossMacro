@@ -8,7 +8,7 @@ a general macOS background-input driver.
 
 ## Requirements
 
-- macOS, Xcode command-line tools, Python3.9+; Pillow for pixel/crop conditions.
+- macOS, Xcode command-line tools, Python3.9+; Pillow for pixel/crop conditions; NumPy for optional local image-template targets.
 - An existing CUA MCP installation with normal permissions. Proprietary runtime
   binaries are not included and its internal entry point is not a stable SDK.
 - .NET10 when building CrossMacro (see CONTRIBUTING.md).
@@ -141,3 +141,18 @@ Standalone locked operation is not certified: a CUA call may fail because it
 cannot be associated with a trusted ChatGPT thread. This is a fatal input failure;
 do not retry through another tool, invent metadata or weaken lock protection.
 Short successful samples do not prove unattended locked execution.
+
+## Local observation extensions
+
+Executor0.2.0 supports bounded image templates supplied by private `image_templates`
+configuration, calibrated red/green/white pixel regions, multiple queue timer
+regions, and positive inventory deltas with observation-only retries. Template
+matching runs locally with NumPy/Pillow and never calls a model. Workflow
+`finish_if` declares an early completion condition; the batch still verifies or
+restores its declared exit anchor. `skip_if_step_skipped` links a feedback check
+to an earlier optional action. Direction-arrow `key_count` is bounded to20.
+
+OCR targets remain unique by default. A workflow can explicitly use a bounded
+regular-expression target with `select: top-left`; ambiguous targets without
+that selection still fail before input. New business actions belong in the
+separate game skill, not this repository.
