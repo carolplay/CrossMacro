@@ -314,6 +314,8 @@ def validate_workflow(workflow):
                 or type(step.get('duration_ms',600)) is not int
                 or not 1<=step.get('duration_ms',600)<=1000 or not step.get('after')):
                 raise ValueError('Key steps require a bounded navigation arrow and completion conditions')
+        if step.get('once_per_game_day') and (step['action'] != 'click' or not isinstance(step['once_per_game_day'],str) or not re.fullmatch(r'[a-z0-9_-]{1,80}',step['once_per_game_day'])):
+            raise ValueError('Invalid daily operation key')
         attempts = step.get('observe_attempts', 1)
         if type(attempts) is not int or not 1 <= attempts <= 30:
             raise ValueError('observe_attempts must be between 1 and 30')
@@ -541,6 +543,11 @@ def execute(config, workflow, step_name, backend=None):
                         except Exception as exc:
                             entry['audio_feedback']={'status':'unavailable','reason':str(exc)}
                             if capture: capture.stop();capture=None
+                    daily_reservation = None
+                    if step.get('once_per_game_day'):
+                        from daily_operations import reserve
+                        daily_reservation = reserve(config,step['once_per_game_day'])
+                        entry['daily_reservation_key'] = daily_reservation[1]
                     entry['click_unix'] = time.time()
                     try:
                         client.js('await target.click(%s); await target.getAXState();' % json.dumps(point))
@@ -577,6 +584,10 @@ def execute(config, workflow, step_name, backend=None):
                     entry['after_verified'] = True
                     entry['after_observations'] = attempt + 1
                     entry['after_visual_checks'] = getattr(after,'visual_checks',[])
+                    if daily_reservation:
+                        from daily_operations import confirm
+                        confirm(daily_reservation)
+                        entry['daily_operation_confirmed'] = True
                 print(json.dumps({'status':'step_passed','step':step['name']},ensure_ascii=False),flush=True)
             report['status'] = 'passed'
         except (Exception, KeyboardInterrupt) as exc:

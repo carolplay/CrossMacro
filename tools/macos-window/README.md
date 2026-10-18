@@ -315,11 +315,22 @@ account configuration must remain outside the repository.
 
 Next-round candidates (`wos-crystal-ordinary.json`,
 `wos-crystal-half-price.json`, `wos-expert-camp-rewards.json`) are separate from
-the stable visit. The lab navigation has a recorded Daily-tab OCR failure and
-has not passed full playback. Expert coverage is limited to a calibrated camp
-reward badge, including an empty-state branch; it is not all Expert rewards.
+the stable visit. Lab navigation now reaches the laboratory using bounded overview scrolling,
+but its button OCR assertion (1 versus I) still stops playback before consumption;
+its lab exit has the same gap. Full playback remains unverified. Expert coverage
+is limited to one calibrated camp entry: two actual reward-badge claims passed
+on one trial role, with reward/recruitment banners and a drained badge; another
+trial role passed the empty state. This does not cover all Expert rewards.
 No bank automation is implemented: the bank tab entry remains unresolved.
 Navigation `key` steps accept only four arrows for at most1000ms, require fresh
 page preconditions and postconditions, and never retry input. The local client
 configuration must explicitly authorize `press_key` to use them. White-badge
-pixel conditions require both page text and calibrated bounds.
+pixel conditions require both page text and calibrated bounds. Bounded arrow
+input has now been exercised during lab navigation.
+
+The half-price click reserves `first-half-price-refinement` in an absolute,
+local `daily_state_file` before input. Keys use a hashed role identity and UTC
+game day; pending and confirmed entries both prevent another attempt. A visual
+postcondition confirms the reservation, while uncertain input stays pending for
+review. Ledger tests pass; this consumption path has not yet been exercised in
+a full live macro. Keep the ledger outside Git.

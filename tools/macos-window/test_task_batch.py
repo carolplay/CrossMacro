@@ -22,9 +22,9 @@ class BatchTests(unittest.TestCase):
 
     def test_city_overview_must_close_before_anchor_is_restored(self):
         flow=json.loads((Path(__file__).parent/'wos-training-lancer.json').read_text())
-        self.assertFalse(batch.matches('英雄 背包 野外 日常 盾兵 矛兵 射手',flow['task_contract']['anchor']))
+        self.assertFalse(batch.matches('英雄 背包 野外 日常 部队训练 盾兵 矛兵 射手',flow['task_contract']['anchor']))
         with tempfile.TemporaryDirectory() as directory:
-            backend=Mock();backend.observe.side_effect=['英雄 背包 野外 日常 盾兵 矛兵 射手','英雄 背包 野外']
+            backend=Mock();backend.observe.side_effect=['英雄 背包 野外 日常 部队训练 盾兵 矛兵 射手','英雄 背包 野外']
             with patch.object(macro,'execute') as execute:
                 result=batch.restore_anchor({'log_dir':directory},flow,backend)
             self.assertEqual('restored',result['status'])

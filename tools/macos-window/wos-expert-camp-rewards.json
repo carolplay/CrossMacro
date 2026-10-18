@@ -137,6 +137,24 @@
       "observe_attempts": 5
     },
     {
+      "name": "settle-camp-camera-1",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
+      "name": "settle-camp-camera-2",
+      "action": "observe",
+      "before": [
+        "英雄",
+        "背包",
+        "野外"
+      ]
+    },
+    {
       "name": "claim-camp-badge-1",
       "action": "click",
       "point": [
@@ -152,12 +170,12 @@
         "white_regions": [
           {
             "bounds": [
-              365,
-              478,
-              371,
-              505
+              361,
+              460,
+              433,
+              540
             ],
-            "min": 0.6
+            "min": 0.05
           }
         ]
       },
@@ -184,12 +202,12 @@
         "white_regions": [
           {
             "bounds": [
-              365,
-              478,
-              371,
-              505
+              361,
+              460,
+              433,
+              540
             ],
-            "max": 0.12
+            "max": 0.025
           }
         ]
       }
@@ -210,12 +228,12 @@
         "white_regions": [
           {
             "bounds": [
-              365,
-              478,
-              371,
-              505
+              361,
+              460,
+              433,
+              540
             ],
-            "min": 0.6
+            "min": 0.05
           }
         ]
       },
@@ -242,12 +260,12 @@
         "white_regions": [
           {
             "bounds": [
-              365,
-              478,
-              371,
-              505
+              361,
+              460,
+              433,
+              540
             ],
-            "max": 0.12
+            "max": 0.025
           }
         ]
       }
@@ -264,12 +282,12 @@
         "white_regions": [
           {
             "bounds": [
-              365,
-              478,
-              371,
-              505
+              361,
+              460,
+              433,
+              540
             ],
-            "max": 0.12
+            "max": 0.025
           }
         ]
       },
@@ -287,8 +305,12 @@
       ],
       "none": [
         "日常",
-        "建造队列",
-        "游历补给"
+        "建筑队列",
+        "游历补给",
+        "部队训练",
+        "技能学习",
+        "超级提炼优惠",
+        "提炼次数"
       ]
     },
     "max_exit_steps": 4,
@@ -365,15 +387,20 @@
         ],
         "before": {
           "all": [
-            "日常",
             "英雄",
-            "背包"
+            "背包",
+            "野外"
           ],
           "any": [
-            "盾兵",
-            "矛兵",
-            "射手",
-            "游历补给"
+            "游历补给",
+            "部队训练",
+            "技能学习",
+            "超级提炼优惠",
+            "提炼次数",
+            "宠物寻宝",
+            "竞技场",
+            "生命之树",
+            "联盟捐献"
           ]
         },
         "after": {
@@ -392,5 +419,5 @@
       }
     ]
   },
-  "verification_scope": "One trial role empty-badge branch passed; second trial role had uncertain white-badge measurement, no claim input, city anchor restored and next task continued. Actual expert claim unverified."
+  "verification_scope": "Trial role A passed two actual camp reward-badge claims with Gareth reward and Romulus troop-recruitment banners, then drained badge. Trial role B passed empty-badge branch. Only this camp entry; other Expert/enlistment-office rewards unverified."
 }
