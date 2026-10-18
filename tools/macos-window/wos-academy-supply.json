@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-academy-supply",
+  "action_version": "0.1.0",
   "name": "wos-academy-supply (trial)",
   "reference_size": [
     788,

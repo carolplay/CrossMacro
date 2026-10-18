@@ -19,6 +19,7 @@ class BatchTests(unittest.TestCase):
             self.assertEqual(['deviation','passed'],[t['status'] for t in r['tasks']])
             self.assertEqual(3,execute.call_count)
             self.assertEqual('close',execute.call_args_list[1].args[1]['steps'][0]['name'])
+            self.assertEqual('unversioned/exit/close',execute.call_args_list[1].args[1]['action_id'])
 
     def test_city_overview_must_close_before_anchor_is_restored(self):
         flow=json.loads((Path(__file__).parent/'wos-training-lancer.json').read_text())
@@ -46,6 +47,8 @@ class BatchTests(unittest.TestCase):
             with patch.object(macro,'execute',side_effect=macro.FatalExecutionError('Identity mismatch')) as execute:
                 r=batch.run_batch({'log_dir':directory},[('first',self.flow()),('next',self.flow())],backend)
             self.assertEqual(['fatal','not_executed'],[t['status'] for t in r['tasks']])
+            self.assertEqual(2,len(r['versions']['actions']))
+            self.assertEqual(r['versions']['actions'][1]['sha256'],r['tasks'][1]['workflow']['sha256'])
             backend.observe.assert_not_called();self.assertEqual(1,execute.call_count)
 
     def test_unknown_page_stops_without_recovery_click(self):

@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-alliance-help",
+  "action_version": "0.1.0",
   "name": "WOS — all available alliance help",
   "reference_size": [
     788,

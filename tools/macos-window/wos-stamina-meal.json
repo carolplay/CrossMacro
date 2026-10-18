@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-stamina-meal",
+  "action_version": "0.1.0",
   "name": "WOS — free stamina meal (trial)",
   "reference_size": [
     788,

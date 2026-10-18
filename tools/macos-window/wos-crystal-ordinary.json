@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-crystal-ordinary",
+  "action_version": "0.1.0",
   "name": "WOS — ordinary fire crystal refinements (up to8)",
   "reference_size": [
     788,

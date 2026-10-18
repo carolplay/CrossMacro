@@ -334,3 +334,20 @@ game day; pending and confirmed entries both prevent another attempt. A visual
 postcondition confirms the reservation, while uncertain input stays pending for
 review. Ledger tests pass; this consumption path has not yet been exercised in
 a full live macro. Keep the ledger outside Git.
+
+
+## Macro version baseline
+
+The V2 WOS suite and each `wos-*.json` action start at `0.1.0` for the
+current implementation; earlier logs remain unversioned. An action version
+covers its steps, conditions and page-specific exits. Bump its patch version
+for OCR/exit fixes, minor version for added branches, major version for changed
+entry/exit or business contracts. Increment the suite release for any released
+action or executor change. Never change a running batch in place.
+
+Batch summaries include the ordered action IDs, versions and SHA-256 hashes,
+including tasks not executed after a stop. Individual execution and recovery
+reports carry the action identity; exit reports inherit the parent action
+version. A changed hash with an unchanged version exposes a missed version bump.
+A version number does not mean a branch was verified. Keep verification scope,
+failures, recovery outcome and evidence separate.

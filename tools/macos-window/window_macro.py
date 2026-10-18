@@ -23,6 +23,7 @@ import threading
 import time
 import unicodedata
 import uuid
+from workflow_versions import SUITE_VERSION, workflow_identity
 
 
 class FatalExecutionError(RuntimeError):
@@ -465,7 +466,8 @@ def execute(config, workflow, step_name, backend=None):
         folder = log_dir / (time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8])
         folder.mkdir()
         report = {'status':'running','step':step_name,'started_unix':time.time(),
-            'runtime_model_calls':0,'chat_identity_supplied':False,'steps':[]}
+            'runtime_model_calls':0,'chat_identity_supplied':False,'steps':[],
+            'suite_version':SUITE_VERSION,'workflow':workflow_identity(workflow)}
         client = backend
         try:
             if client is None:

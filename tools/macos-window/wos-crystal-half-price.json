@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-crystal-half-price",
+  "action_version": "0.1.0",
   "name": "WOS — first daily half-price super refinement only",
   "reference_size": [
     788,

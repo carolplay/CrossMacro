@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-alliance-donate",
+  "action_version": "0.1.0",
   "name": "WOS — recommended alliance tech, at most25 ordinary coal donations (1250each), no gems",
   "reference_size": [
     788,

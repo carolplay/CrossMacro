@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-daily-earned",
+  "action_version": "0.1.0",
   "name": "WOS — earned daily rewards and game-queued progress rewards",
   "reference_size": [
     788,

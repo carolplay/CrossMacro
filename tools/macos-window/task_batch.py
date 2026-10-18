@@ -5,6 +5,7 @@ from pathlib import Path
 
 import window_macro as macro
 import check_run
+from workflow_versions import workflow_identity, suite_identity
 
 
 def fatal(error):
@@ -56,17 +57,20 @@ def restore_anchor(config, workflow, backend):
             except RuntimeError as exc:
                 raise macro.FatalExecutionError('Identity mismatch during recovery') from exc
         # The normal executor re-observes and re-checks immediately before input.
-        macro.execute(config, {'reference_size': workflow['reference_size'], 'steps': [step]}, 'all', backend=backend)
+        macro.execute(config, {'reference_size': workflow['reference_size'], 'steps': [step],
+            'action_id': workflow.get('action_id', 'unversioned') + '/exit/' + step['name'],
+            'action_version': workflow.get('action_version', 'unversioned')}, 'all', backend=backend)
     return {'status': 'unrecovered', 'reason': 'Exit step budget exhausted', 'evidence': str(folder)}
 
 
 def run_batch(config, tasks, backend):
     started = time.time()
     result = {'run_mode': 'macro_only_record_deviations', 'agent_fallback': False,
-              'started_unix': started, 'runtime_model_calls': 0, 'tasks': []}
+              'started_unix': started, 'runtime_model_calls': 0, 'tasks': [],
+              'versions': suite_identity(tasks)}
     for index, (name, workflow) in enumerate(tasks):
         begin = time.time()
-        entry = {'task': name}
+        entry = {'task': name, 'workflow': workflow_identity(workflow)}
         try:
             macro.execute(config, workflow, 'all', backend=backend)
             entry['status'] = 'passed'
@@ -85,8 +89,9 @@ def run_batch(config, tasks, backend):
         entry['elapsed_seconds'] = time.time() - begin
         result['tasks'].append(entry)
         if entry['status'] == 'fatal' or entry['anchor']['status'] != 'restored':
-            result['tasks'].extend({'task': other, 'status': 'not_executed', 'reason': 'Fatal failure or anchor not restored'}
-                                   for other, _ in tasks[index + 1:])
+            result['tasks'].extend({'task': other, 'workflow': workflow_identity(other_flow),
+                                   'status': 'not_executed', 'reason': 'Fatal failure or anchor not restored'}
+                                   for other, other_flow in tasks[index + 1:])
             break
     result['ended_unix'] = time.time()
     result['elapsed_seconds'] = result['ended_unix'] - started

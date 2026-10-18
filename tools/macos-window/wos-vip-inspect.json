@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-vip-inspect",
+  "action_version": "0.1.0",
   "name": "WOS — free VIP gift or cooldown",
   "reference_size": [
     788,

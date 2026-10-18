@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-idle-rewards",
+  "action_version": "0.1.0",
   "name": "WOS — claim exploration idle rewards",
   "reference_size": [
     788,

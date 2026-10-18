@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-training-lancer",
+  "action_version": "0.1.0",
   "name": "WOS — 矛兵 collect and ordinary-resource training (trial)",
   "reference_size": [
     788,

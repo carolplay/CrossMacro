@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-mail-rewards",
+  "action_version": "0.1.0",
   "name": "WOS — mail batch claim (no deletion)",
   "reference_size": [
     788,

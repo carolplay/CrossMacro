@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-free-recruit",
+  "action_version": "0.1.0",
   "name": "WOS — free advanced and epic recruitment, never spend keys",
   "reference_size": [
     788,

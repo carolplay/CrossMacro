@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-alliance-free",
+  "action_version": "0.1.0",
   "name": "wos-alliance-free (trial)",
   "reference_size": [
     788,

@@ -1,4 +1,6 @@
 {
+  "action_id": "wos-expert-camp-rewards",
+  "action_version": "0.1.0",
   "name": "WOS — shield camp expert badge rewards (trial)",
   "reference_size": [
     788,
