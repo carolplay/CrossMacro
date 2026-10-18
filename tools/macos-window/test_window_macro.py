@@ -9,7 +9,7 @@ import window_macro as macro
 
 class WindowMacroTests(unittest.TestCase):
     def workflow(self):
-        return json.loads((Path(__file__).parent/'wos-profile.json').read_text())
+        return json.loads((Path(__file__).parent/'example-profile.json').read_text())
 
     def test_fresh_runtime_directory_supports_protocol_start_and_owned_cleanup(self):
         import sys
@@ -188,7 +188,7 @@ class WindowMacroTests(unittest.TestCase):
     def test_export_keeps_steps_editable_and_uses_no_native_clicks(self):
         with tempfile.TemporaryDirectory(prefix='macro test ') as directory:
             output = Path(directory)/'sample.macro'
-            macro.export_macro(Path(directory)/'config.json',Path(__file__).parent/'wos-profile.json',output)
+            macro.export_macro(Path(directory)/'config.json',Path(__file__).parent/'example-profile.json',output)
             content = output.read_text()
             self.assertEqual(4,len([line for line in content.splitlines() if line.startswith('shell ')]))
             self.assertIn('04-return-city',content)

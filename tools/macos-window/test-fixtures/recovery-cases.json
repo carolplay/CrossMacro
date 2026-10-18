@@ -1,0 +1,356 @@
+{
+  "donate": {
+    "reference_size": [
+      788,
+      1079
+    ],
+    "task_contract": {
+      "entry_anchor": "city",
+      "exit_anchor": "city",
+      "anchor": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建筑队列",
+          "游历补给",
+          "部队训练",
+          "技能学习",
+          "超级提炼优惠",
+          "提炼次数"
+        ]
+      },
+      "max_exit_steps": 4,
+      "exits": [
+        {
+          "name": "exit-donation",
+          "action": "click",
+          "point": [
+            624,
+            190
+          ],
+          "before": [
+            "捐献奖励",
+            "次数"
+          ],
+          "after": [
+            "联盟科技",
+            "发展",
+            "领地",
+            "战斗"
+          ],
+          "observe_attempts": 3
+        },
+        {
+          "name": "exit-tech",
+          "action": "click",
+          "point": [
+            133,
+            59
+          ],
+          "before": [
+            "联盟科技",
+            "发展",
+            "领地",
+            "战斗"
+          ],
+          "after": [
+            "联盟",
+            "联盟科技",
+            "联盟互助"
+          ],
+          "observe_attempts": 3
+        },
+        {
+          "name": "exit-alliance",
+          "action": "click",
+          "point": [
+            132,
+            59
+          ],
+          "before": [
+            "联盟",
+            "联盟宝箱",
+            "联盟互助",
+            "联盟科技"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 5
+        },
+        {
+          "name": "exit-profile",
+          "action": "click",
+          "point": [
+            132,
+            59
+          ],
+          "before": [
+            "领主档案"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 3,
+          "verify_identity": true
+        },
+        {
+          "name": "exit-city-overview",
+          "action": "click",
+          "point": [
+            482,
+            482
+          ],
+          "before": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "any": [
+              "游历补给",
+              "部队训练",
+              "技能学习",
+              "超级提炼优惠",
+              "提炼次数",
+              "宠物寻宝",
+              "竞技场",
+              "生命之树",
+              "联盟捐献"
+            ]
+          },
+          "after": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "none": [
+              "日常",
+              "建造队列",
+              "游历补给"
+            ]
+          },
+          "observe_attempts": 5
+        }
+      ]
+    }
+  },
+  "refined": {
+    "reference_size": [
+      788,
+      1079
+    ],
+    "task_contract": {
+      "entry_anchor": "city",
+      "exit_anchor": "city",
+      "anchor": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建筑队列",
+          "游历补给",
+          "部队训练",
+          "技能学习",
+          "超级提炼优惠",
+          "提炼次数"
+        ]
+      },
+      "max_exit_steps": 3,
+      "exits": [
+        {
+          "name": "exit-profile",
+          "action": "click",
+          "point": [
+            132,
+            59
+          ],
+          "before": [
+            "领主档案"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 3,
+          "verify_identity": true
+        },
+        {
+          "name": "exit-lab",
+          "action": "click",
+          "point": [
+            133,
+            59
+          ],
+          "before": [
+            "今日剩余次数",
+            "本周超级提炼次数"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 5
+        },
+        {
+          "name": "exit-city-overview",
+          "action": "click",
+          "point": [
+            482,
+            482
+          ],
+          "before": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "any": [
+              "游历补给",
+              "部队训练",
+              "技能学习",
+              "超级提炼优惠",
+              "提炼次数",
+              "宠物寻宝",
+              "竞技场",
+              "生命之树",
+              "联盟捐献"
+            ]
+          },
+          "after": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "none": [
+              "日常",
+              "建造队列",
+              "游历补给"
+            ]
+          },
+          "observe_attempts": 5
+        }
+      ]
+    }
+  },
+  "lancer": {
+    "reference_size": [
+      788,
+      1079
+    ],
+    "task_contract": {
+      "entry_anchor": "city",
+      "exit_anchor": "city",
+      "anchor": {
+        "all": [
+          "英雄",
+          "背包",
+          "野外"
+        ],
+        "none": [
+          "日常",
+          "建筑队列",
+          "游历补给",
+          "部队训练",
+          "技能学习",
+          "超级提炼优惠",
+          "提炼次数"
+        ]
+      },
+      "max_exit_steps": 3,
+      "exits": [
+        {
+          "name": "exit-profile",
+          "action": "click",
+          "point": [
+            132,
+            59
+          ],
+          "before": [
+            "领主档案"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 3,
+          "verify_identity": true
+        },
+        {
+          "name": "exit-training",
+          "action": "click",
+          "point": [
+            133,
+            59
+          ],
+          "before": [
+            "盾兵营",
+            "矛兵营",
+            "射手营"
+          ],
+          "after": [
+            "英雄",
+            "背包",
+            "野外"
+          ],
+          "observe_attempts": 5
+        },
+        {
+          "name": "exit-city-overview",
+          "action": "click",
+          "point": [
+            482,
+            482
+          ],
+          "before": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "any": [
+              "游历补给",
+              "部队训练",
+              "技能学习",
+              "超级提炼优惠",
+              "提炼次数",
+              "宠物寻宝",
+              "竞技场",
+              "生命之树",
+              "联盟捐献"
+            ]
+          },
+          "after": {
+            "all": [
+              "英雄",
+              "背包",
+              "野外"
+            ],
+            "none": [
+              "日常",
+              "建造队列",
+              "游历补给"
+            ]
+          },
+          "observe_attempts": 5
+        }
+      ]
+    }
+  }
+}

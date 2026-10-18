@@ -8,7 +8,7 @@ import window_macro as macro
 
 class BatchTests(unittest.TestCase):
     def test_level_less_donation_failure_recovers_all_three_pages_then_continues(self):
-        flow=json.loads((Path(__file__).parent/'wos-alliance-donate.json').read_text())
+        flow=json.loads((Path(__file__).parent/'test-fixtures/recovery-cases.json').read_text())['donate']
         with tempfile.TemporaryDirectory() as directory:
             backend=Mock();backend.observe.side_effect=[
                 '联盟永续 捐献奖励 次数：25/25 10,000',
@@ -23,7 +23,7 @@ class BatchTests(unittest.TestCase):
                 [call.args[1]['steps'][0]['name'] for call in execute.call_args_list[1:4]])
 
     def test_lab_button_ocr_failure_recovers_and_runs_following_task(self):
-        flow=json.loads((Path(__file__).parent/'wos-crystal-half-price.json').read_text())
+        flow=json.loads((Path(__file__).parent/'test-fixtures/recovery-cases.json').read_text())['refined']
         with tempfile.TemporaryDirectory() as directory:
             backend=Mock();backend.observe.side_effect=[
                 '今日剩余次数：8 本周超级提炼次数：68 超级提炼I次',
@@ -72,7 +72,7 @@ class BatchTests(unittest.TestCase):
             self.assertEqual('unversioned/exit/close',execute.call_args_list[1].args[1]['action_id'])
 
     def test_city_overview_must_close_before_anchor_is_restored(self):
-        flow=json.loads((Path(__file__).parent/'wos-training-lancer.json').read_text())
+        flow=json.loads((Path(__file__).parent/'test-fixtures/recovery-cases.json').read_text())['lancer']
         self.assertFalse(batch.matches('英雄 背包 野外 日常 部队训练 盾兵 矛兵 射手',flow['task_contract']['anchor']))
         with tempfile.TemporaryDirectory() as directory:
             backend=Mock();backend.observe.side_effect=['英雄 背包 野外 日常 部队训练 盾兵 矛兵 射手','英雄 背包 野外']
