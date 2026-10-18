@@ -91,10 +91,12 @@ class Observation(str):
 
 def require_text(text, required):
     if isinstance(required, dict):
-        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'timer_regions', 'green_regions', 'red_regions', 'text_regions', 'white_regions', 'page_text_regions', 'template_regions'}
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'timer_regions', 'green_regions', 'red_regions', 'text_regions', 'white_regions', 'page_text_regions', 'page_text_only', 'template_regions'}
         if unknown:
             raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
-        page_text = str(text)
+        if required.get('page_text_only') and not required.get('page_text_regions'):
+            raise ValueError('Scoped page text requires explicit crop regions')
+        page_text = '' if required.get('page_text_only') else str(text)
         for bounds in required.get('page_text_regions', []):
             if not isinstance(text, Observation) or not text.ocr_config:
                 raise RuntimeError('Page crop assertions require a fresh local image')
@@ -281,10 +283,13 @@ def validate_condition(condition, size):
         return
     if not isinstance(condition, dict) or not condition:
         raise ValueError('Expected OCR text list or condition object')
-    if set(condition) - {'all','any','none','timer_seconds','timer_regions','green_regions','red_regions','text_regions','white_regions','page_text_regions','template_regions'}:
+    if set(condition) - {'all','any','none','timer_seconds','timer_regions','green_regions','red_regions','text_regions','white_regions','page_text_regions','page_text_only','template_regions'}:
         raise ValueError('Unknown local observation condition')
     if not condition.get('all') and not condition.get('any'):
         raise ValueError('Conditions require a positive page-text assertion')
+    if 'page_text_only' in condition and (type(condition['page_text_only']) is not bool
+        or condition['page_text_only'] and not condition.get('page_text_regions')):
+        raise ValueError('Scoped page text requires explicit crop regions and a boolean flag')
     if 'timer_regions' in condition:
         regions=condition['timer_regions']
         if not isinstance(regions,list) or not 1<=len(regions)<=4:

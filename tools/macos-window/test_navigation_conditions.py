@@ -6,6 +6,24 @@ from PIL import Image
 import window_macro as macro
 
 class NavigationConditionsTests(unittest.TestCase):
+    def test_scoped_menu_excludes_background_text_but_rejects_local_forbidden_text(self):
+        bounds=[20,20,80,70]
+        obs=macro.Observation('CITY Rally',Path('unused.png'),{}, {'binary':'unused','language':'zh-Hans'})
+        obs.timer_regions[('page',*bounds)]=['Recommended strength','Attack']
+        condition={'all':['Recommended strength','Attack'],'none':['Rally','Scout'],
+                   'page_text_regions':[bounds],'page_text_only':True}
+        macro.validate_condition(condition,[100,100])
+        macro.require_text(obs,condition)
+        with self.assertRaises(RuntimeError):
+            macro.require_text(obs,{**condition,'page_text_only':False})
+        obs.timer_regions[('page',*bounds)].append('Scout')
+        with self.assertRaises(RuntimeError):
+            macro.require_text(obs,condition)
+
+    def test_scoped_menu_requires_a_bounded_region(self):
+        with self.assertRaises(ValueError):
+            macro.validate_condition({'all':['PAGE'],'page_text_only':True},[100,100])
+
     def test_only_bounded_arrows_are_allowed(self):
         step={'name':'scroll','action':'key','key':'Up','duration_ms':600,'before':['PAGE'],'after':['PAGE']}
         flow={'reference_size':[100,100],'steps':[step]}
