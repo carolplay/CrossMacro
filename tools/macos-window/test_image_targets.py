@@ -43,3 +43,26 @@ class ImageTargetsTests(unittest.TestCase):
     def test_missing_binding_does_not_guess_a_target(self):
         with self.assertRaisesRegex(RuntimeError,'Missing configured'):
             match(macro.Observation('PAGE','unused'),{'template':'x','bounds':[0,0,40,40]})
+
+    def test_alias_variants_choose_present_skin_and_cache_each(self):
+        with tempfile.TemporaryDirectory() as directory:
+            r=Path(directory);rng=np.random.default_rng(84)
+            source=rng.integers(0,256,(100,140,3),dtype=np.uint8)
+            old=rng.integers(0,256,(18,22,3),dtype=np.uint8)
+            new=rng.integers(0,256,(18,22,3),dtype=np.uint8)
+            source[38:56,63:85]=new
+            for name,a in [('source',source),('old',old),('new',new)]:Image.fromarray(a).save(r/(name+'.png'))
+            obs=macro.Observation('PAGE',r/'source.png',{}, {'templates':{'target':[str(r/'old.png'),str(r/'new.png')]}})
+            spec={'template':'target','bounds':[40,20,120,85],'mode':'grayscale','min_score':.95}
+            self.assertEqual([74,47],macro.resolve_point({'image_target':spec},obs,[140,100]))
+            self.assertEqual(2,len(obs.timer_regions))
+            macro.require_text(obs,{'all':['PAGE'],'template_regions':[spec]})
+            self.assertEqual(2,len(obs.timer_regions))
+            absent={**spec,'bounds':[0,0,40,35],'present':False}
+            macro.require_text(obs,{'all':['PAGE'],'template_regions':[absent]})
+
+    def test_invalid_alias_variant_list_does_not_send_input(self):
+        for paths in [[],['one']*5,['one',None]]:
+            obs=macro.Observation('PAGE','unused',{}, {'templates':{'x':paths}})
+            with self.assertRaises(RuntimeError):
+                match(obs,{'template':'x','bounds':[0,0,40,40]})

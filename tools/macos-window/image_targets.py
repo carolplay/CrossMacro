@@ -12,6 +12,15 @@ def match(observation, spec):
     config=observation.ocr_config or {}
     filename=config.get('templates',{}).get(spec['template'])
     if not filename:raise RuntimeError('Missing configured image template: '+spec['template'])
+    filenames=filename if isinstance(filename,list) else [filename]
+    if not 1<=len(filenames)<=4 or not all(isinstance(p,str) and p for p in filenames):
+        raise RuntimeError('Image template alias requires one to four local paths')
+    results=[_match_one(observation,spec,p) for p in filenames]
+    result=max(results,key=lambda r:r['score'])
+    observation.visual_checks.append({'template':spec['template'],'bounds':spec['bounds'],**result})
+    return result
+
+def _match_one(observation,spec,filename):
     bounds=spec['bounds'];mode=spec.get('mode','white-glyph')
     key=('template',str(filename),*bounds,mode)
     if key not in observation.timer_regions:
@@ -34,5 +43,4 @@ def match(observation, spec):
         point=[round(bounds[0]+index[1]+tw/2),round(bounds[1]+index[0]+th/2)]
         observation.timer_regions[key]={'score':score,'point':point}
     result=observation.timer_regions[key]
-    observation.visual_checks.append({'template':spec['template'],'bounds':bounds,**result})
     return result

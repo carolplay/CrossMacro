@@ -156,3 +156,5 @@ OCR targets remain unique by default. A workflow can explicitly use a bounded
 regular-expression target with `select: top-left`; ambiguous targets without
 that selection still fail before input. New business actions belong in the
 separate game skill, not this repository.
+
+Executor0.2.4 accepts either one local file path or an array of one to four local paths for each `image_templates` alias. This supports visual variants without model inference. Each variant is matched and cached against the same captured frame; the best score supplies the target. An absent known template does not establish that an unknown skin has no pending work.
