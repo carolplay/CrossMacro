@@ -68,11 +68,32 @@ class Observation(str):
 
 def require_text(text, required):
     if isinstance(required, dict):
-        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions', 'text_regions', 'white_regions'}
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'green_regions', 'text_regions', 'white_regions', 'page_text_regions'}
         if unknown:
             raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
-        require_text(text, required.get('all', []))
-        value = normalize(text)
+        page_text = str(text)
+        for bounds in required.get('page_text_regions', []):
+            if not isinstance(text, Observation) or not text.ocr_config:
+                raise RuntimeError('Page crop assertions require a fresh local image')
+            key = ('page', *bounds)
+            if key not in text.timer_regions:
+                from PIL import Image
+                derived = Path(text.image_path).parent / 'derived'
+                derived.mkdir(exist_ok=True)
+                crop = derived / (Path(text.image_path).stem + '-page-' + '-'.join(map(str,bounds)) + '.png')
+                with Image.open(text.image_path) as image:
+                    region = image.crop(bounds)
+                    region.resize((region.width * 2, region.height * 2), Image.Resampling.LANCZOS).save(crop)
+                raw = subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],
+                                     capture_output=True,text=True,check=True,timeout=15)
+                data = json.loads(raw.stdout)
+                crop.with_suffix('.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
+                text.timer_regions[key] = [line['text'] for line in data['lines'] if line.get('confidence',0) >= .5]
+            labels = text.timer_regions[key]
+            page_text += '\n' + '\n'.join(labels)
+            text.visual_checks.append({'page_crop_bounds':bounds,'labels':labels})
+        require_text(page_text, required.get('all', []))
+        value = normalize(page_text)
         choices = required.get('any', [])
         if choices and not any(normalize(s) in value for s in choices):
             raise RuntimeError('OCR condition failed: no alternative matched')
@@ -204,13 +225,22 @@ def validate_condition(condition, size):
         return
     if not isinstance(condition, dict) or not condition:
         raise ValueError('Expected OCR text list or condition object')
-    if set(condition) - {'all','any','none','timer_seconds','green_regions','text_regions','white_regions'}:
+    if set(condition) - {'all','any','none','timer_seconds','green_regions','text_regions','white_regions','page_text_regions'}:
         raise ValueError('Unknown local observation condition')
     if not condition.get('all') and not condition.get('any'):
         raise ValueError('Conditions require a positive page-text assertion')
     for key in ('all','any','none'):
         if key in condition:
             validate_condition(condition[key],size)
+    if 'page_text_regions' in condition:
+        regions = condition['page_text_regions']
+        if not isinstance(regions,list) or not 1 <= len(regions) <= 4:
+            raise ValueError('Page text crops require one to four regions')
+        for bounds in regions:
+            if (not isinstance(bounds,list) or len(bounds)!=4 or any(type(v) is not int for v in bounds)
+                or not 0 <= bounds[0] < bounds[2] <= size[0]
+                or not 0 <= bounds[1] < bounds[3] <= size[1]):
+                raise ValueError('Invalid page text crop bounds')
     if 'timer_seconds' in condition:
         limits = condition['timer_seconds']
         if (not isinstance(limits,dict) or not limits or set(limits)-{'min','max','bounds'}

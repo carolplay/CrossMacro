@@ -68,6 +68,9 @@ require a supported platform backend.
 
 Conditions support text arrays and `all`, `any`, `none`, `timer_seconds`,
 `green_regions`, `white_regions`, and regional text/crop OCR where declared.
+`page_text_regions` optionally adds up to four bounded image crops to page-text
+assertions. This reads calibrated headers/footers when dense art confuses full-image
+OCR; it reuses the same screenshot, caches crop results, and never sends input.
 `skip_if`/`skip_if_any` recognize explicitly allowed alternative branches.
 `observe_attempts` repeats observations only; it never repeats a click. Workflows
 may set `execution_timeout_seconds` (integer1–600) for the whole action after

@@ -178,3 +178,23 @@ class BatchTests(unittest.TestCase):
                 execute.assert_not_called()
 
 if __name__=='__main__':unittest.main()
+
+class PageCropTests(unittest.TestCase):
+    def test_crops_supply_missing_page_anchors_and_are_cached_without_input(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'portrait-grid.png';Image.new('RGB',(100,100)).save(path)
+            observation=macro.Observation('upside-down OCR noise',path,{}, {'binary':'fixture','language':'zh-Hans'})
+            output=Mock(stdout=json.dumps({'lines':[{'text':'HERO LIST','confidence':1}]}))
+            condition={'all':['HERO LIST'],'page_text_regions':[[0,0,100,20]]}
+            with patch.object(macro.subprocess,'run',return_value=output) as ocr:
+                macro.require_text(observation,condition);macro.require_text(observation,condition)
+                self.assertEqual(1,ocr.call_count)
+                with self.assertRaisesRegex(RuntimeError,'WRONG PAGE'):
+                    macro.require_text(observation,{'all':['WRONG PAGE'],'page_text_regions':[[0,0,100,20]]})
+                self.assertEqual(1,ocr.call_count)
+
+    def test_crop_bounds_and_count_are_bounded(self):
+        for regions in [[],[[0,0,101,20]],[[0,0,100,20]]*5]:
+            with self.assertRaises(ValueError):
+                macro.validate_condition({'all':['PAGE'],'page_text_regions':regions},[100,100])
