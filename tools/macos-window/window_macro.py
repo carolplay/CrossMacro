@@ -7,6 +7,7 @@ configuration belongs outside the repository, as do screenshots and run logs.
 """
 import argparse
 import base64
+import copy
 import fcntl
 import json
 import os
@@ -423,10 +424,37 @@ def resolve_point(step, observation, size):
     return matches[0]
 
 
+def workflow_steps(workflow, steps):
+    """Repeat an explicitly bounded tail with isolated branch names per round."""
+    marker = workflow.get('repeat_from')
+    if not marker or steps is not workflow['steps']:
+        yield from steps
+        return
+    start = next(i for i, step in enumerate(steps) if step['name'] == marker)
+    yield from steps[:start]
+    iteration = 0
+    while True:
+        iteration += 1
+        mapping = {step['name']: f"round-{iteration}-{step['name']}" for step in steps[start:]}
+        for source in steps[start:]:
+            step = copy.deepcopy(source)
+            step['name'] = mapping[source['name']]
+            dependency = step.get('skip_if_step_skipped')
+            if dependency in mapping:
+                step['skip_if_step_skipped'] = mapping[dependency]
+            yield step
+
+
 def validate_workflow(workflow):
     budget = workflow.get('execution_timeout_seconds', 120)
-    if type(budget) is not int or not 1 <= budget <= 600:
-        raise ValueError('execution_timeout_seconds must be an integer from1 to600')
+    if type(budget) is not int or not 1 <= budget <= 1800:
+        raise ValueError('execution_timeout_seconds must be an integer from1 to1800')
+    marker = workflow.get('repeat_from')
+    if marker is not None:
+        candidates = [s for s in workflow['steps'] if s['name'] == marker]
+        if ('execution_timeout_seconds' not in workflow or len(candidates) != 1
+                or candidates[0].get('action') != 'observe' or not candidates[0].get('finish_if')):
+            raise ValueError('Repeated tail requires explicit timeout and an observe completion anchor')
     size = workflow['reference_size']
     if len(size) != 2 or any(type(v) is not int or v <= 0 for v in size):
         raise ValueError('reference_size must contain two positive integers')
@@ -663,7 +691,15 @@ def execute(config, workflow, step_name, backend=None):
                 client.start()
             client.deadline = time.monotonic() + workflow.get('execution_timeout_seconds', min(120, config.get('timeout_seconds',45)))
             inventory = {}
-            for index, step in enumerate(steps):
+            for index, step in enumerate(workflow_steps(workflow, steps)):
+                if time.monotonic() >= client.deadline:
+                    raise FatalExecutionError('Workflow execution timeout')
+                # A skipped branch has no business action or observation to do.
+                # The next eligible step always observes afresh before any input.
+                if any(entry['name'] == step.get('skip_if_step_skipped') and entry.get('skipped') for entry in report['steps']):
+                    report['steps'].append({'name':step['name'],'skipped':True,
+                        'reason':'Earlier branch skipped; no observation or input required','visual_checks':[]})
+                    continue
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
                 if step.get('finish_if'):
                     try:
@@ -750,7 +786,7 @@ def execute(config, workflow, step_name, backend=None):
                         'increase':value-inventory[item['name']], 'read_attempts':read_attempt+1}
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
-                    client.js('for(let i=0;i<%d;i++) await target.pressKey(%s, {durationMs:%d}); await target.getAXState();' %
+                    client.js('for(let i=0;i<%d;i++){ await target.pressKey(%s, {durationMs:%d}); await target.getAXState({emit:false}); }' %
                               (step.get('key_count',1),json.dumps(step['key']),step.get('duration_ms',600)))
                     for attempt in range(step.get('observe_attempts',1)):
                         after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])

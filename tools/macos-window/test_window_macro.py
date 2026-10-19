@@ -36,7 +36,7 @@ class WindowMacroTests(unittest.TestCase):
                 self.assertEqual(340,client.deadline)
 
     def test_workflow_budget_rejects_unbounded_and_invalid_values(self):
-        for budget in (0,601,-1,True,1.5,'240'):
+        for budget in (0,1801,-1,True,1.5,'240'):
             with self.subTest(budget=budget):
                 flow=self.workflow();flow['execution_timeout_seconds']=budget
                 with self.assertRaises(ValueError):macro.validate_workflow(flow)

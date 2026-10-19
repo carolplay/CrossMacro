@@ -43,6 +43,17 @@ class NavigationConditionsTests(unittest.TestCase):
             self.assertIn('pressKey',client.js.call_args.args[0])
             self.assertEqual(3,client.observe.call_count)
 
+    def test_repeated_navigation_waits_for_state_inside_each_gesture(self):
+        flow={'reference_size':[100,100],'steps':[{'name':'scroll','action':'key','key':'Up','key_count':5,'before':['PAGE'],'after':['TARGET']}]}
+        with tempfile.TemporaryDirectory() as directory:
+            client=Mock();client.observe.side_effect=['PAGE','TARGET']
+            macro.execute({'log_dir':directory},flow,'all',backend=client)
+            payload=client.js.call_args.args[0]
+            self.assertIn('i<5',payload)
+            self.assertRegex(payload,r'for.*\{.*pressKey.*getAXState\(\{emit:false\}\).*\}')
+            self.assertEqual(1,client.js.call_count)
+            self.assertEqual(2,client.observe.call_count)
+
     def test_visible_target_skips_arrow(self):
         flow={'reference_size':[100,100],'steps':[{'name':'scroll','action':'key','key':'Up','before':['PAGE'],'after':['PAGE'],'skip_if':['TARGET']}]}
         with tempfile.TemporaryDirectory() as directory:

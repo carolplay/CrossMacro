@@ -158,3 +158,13 @@ that selection still fail before input. New business actions belong in the
 separate game skill, not this repository.
 
 Executor0.2.4 accepts either one local file path or an array of one to four local paths for each `image_templates` alias. This supports visual variants without model inference. Each variant is matched and cached against the same captured frame; the best score supplies the target. An absent known template does not establish that an unknown skin has no pending work.
+
+Executor0.2.5 skips dependent steps without taking redundant observations when their earlier branch was explicitly skipped. The next eligible step still observes afresh before any input. Explicit workflow budgets accept1–1800seconds; workflows retain their own shorter budgets by default. This enables finite local branch cycles without model calls.
+
+Executor0.2.7 supports `repeat_from` naming an observe step with `finish_if`.
+An explicit1–1800second workflow timeout is required. The prefix runs once;
+the declared tail repeats until completion, without a task-count cap. Runtime
+names and skip dependencies are isolated per round, and all observations retain
+unique evidence paths. The deadline stops execution, including tails whose
+branches all skip; it is not treated as successful business completion.
+Repeated navigation keys now fetch fresh window state after each gesture.
