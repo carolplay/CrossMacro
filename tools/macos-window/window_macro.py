@@ -631,6 +631,9 @@ class CuaMcp:
         return self.request('tools/call', {'name':'js','arguments':{'code':code,'title':'CrossMacro authorized window macro'}})
 
     def observe(self, folder, label, expected_size):
+        import viewport_calibration as viewport
+        calibrated = viewport.calibration(self.config, expected_size)
+        native_expected = calibrated["native_size"] if calibrated else expected_size
         result = self.js('await target.getAXStateAndScreenshot();')
         images = [c for c in result.get('content',[]) if c.get('type') == 'image']
         if len(images) != 1:
@@ -641,6 +644,36 @@ class CuaMcp:
             raise RuntimeError('Unsupported screenshot image type: ' + str(mime))
         path = folder / (label + ('.png' if mime == 'image/png' else '.jpg'))
         path.write_bytes(data)
+        # Image content may be a placeholder or transport-resized thumbnail.
+        # Verify against original bytes from the same documented screenshot API;
+        # never scale pixels or send another input to recover an observation.
+        from PIL import Image
+        with Image.open(path) as captured:
+            captured_size = list(captured.size)
+        if captured_size != native_expected:
+            unusable = path.with_name(path.stem + '-unusable-frame' + path.suffix)
+            path.rename(unusable)
+            retry = self.js('var cmOriginalPixels=await target.getScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalPixels).toString("base64")}));')
+            original = None
+            for block in retry.get('content', []):
+                if block.get('type') != 'text':
+                    continue
+                try:
+                    value = json.loads(block['text'])
+                except (ValueError, KeyError):
+                    continue
+                if isinstance(value, dict) and isinstance(value.get('originalScreenshotBase64'), str):
+                    original = value['originalScreenshotBase64']
+                    break
+            if original is None:
+                raise FatalExecutionError('Original screenshot unavailable after invalid image response')
+            path.write_bytes(base64.b64decode(original, validate=True))
+            with Image.open(path) as captured:
+                captured_size = list(captured.size)
+        if captured_size != native_expected:
+            raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
+        if calibrated:
+            viewport.normalize_frame(path, calibrated)
         raw = subprocess.run([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
             capture_output=True,text=True,check=True,timeout=15)
         ocr = json.loads(raw.stdout)
@@ -683,7 +716,8 @@ def execute(config, workflow, step_name, backend=None):
         folder.mkdir()
         report = {'status':'running','step':step_name,'started_unix':time.time(),
             'runtime_model_calls':0,'chat_identity_supplied':False,'steps':[],
-            'suite_version':SUITE_VERSION,'workflow':workflow_identity(workflow)}
+            'suite_version':SUITE_VERSION,'workflow':workflow_identity(workflow),
+            'viewport_calibration':copy.deepcopy(config.get('viewport_calibration'))}
         client = backend
         try:
             if client is None:
@@ -797,6 +831,9 @@ def execute(config, workflow, step_name, backend=None):
                 if step['action'] == 'click':
                     point=resolve_point(step,before,workflow['reference_size'])
                     entry['resolved_point']=point
+                    import viewport_calibration as viewport
+                    point=viewport.point(config,point,workflow['reference_size'])
+                    entry['native_resolved_point']=point
                     capture = None
                     audio_spec = config.get('audio_feedback',{}).get(step.get('audio_event'))
                     if audio_spec:

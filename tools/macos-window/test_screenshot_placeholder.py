@@ -1,0 +1,31 @@
+import base64,io,json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import Mock,patch
+from PIL import Image
+import window_macro as m
+
+def encoded(size):
+ data=io.BytesIO();Image.new('RGB',size,'white').save(data,format='PNG');return base64.b64encode(data.getvalue()).decode()
+def frame(size):return {'content':[{'type':'image','mimeType':'image/png','data':encoded(size)}]}
+def original(size):return {'content':[{'type':'text','text':json.dumps({'originalScreenshotBase64':encoded(size)})}]}
+class PlaceholderTests(unittest.TestCase):
+ def client(self,replies):
+  c=m.CuaMcp.__new__(m.CuaMcp);c.config={'ocr_binary':'unused','language':'en-US'};c.js=Mock(side_effect=replies);return c
+ def test_placeholder_reads_original_pixels_without_input(self):
+  c=self.client([frame((1,1)),original((10,12))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))) as ocr:
+   c.observe(Path(d),'frame',[10,12]);self.assertIn('getScreenshot({emit:false})',c.js.call_args_list[1].args[0]);self.assertNotIn('click',c.js.call_args_list[1].args[0]);self.assertTrue((Path(d)/'frame-unusable-frame.png').exists());ocr.assert_called_once()
+ def test_transport_thumbnail_uses_original_not_scaling(self):
+  c=self.client([frame((5,6)),original((10,12))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):
+   obs=c.observe(Path(d),'frame',[10,12]);self.assertEqual(Image.open(obs.image_path).size,(10,12))
+ def test_persistent_placeholder_stops_before_ocr(self):
+  c=self.client([frame((1,1)),original((1,1))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run') as ocr:
+   with self.assertRaises(m.FatalExecutionError):c.observe(Path(d),'frame',[10,12])
+   self.assertEqual(c.js.call_count,2);ocr.assert_not_called()
+ def test_original_window_resize_stops(self):
+  c=self.client([frame((20,24)),original((20,24))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run') as ocr:
+   with self.assertRaises(m.FatalExecutionError):c.observe(Path(d),'frame',[10,12])
+   self.assertEqual(c.js.call_count,2);ocr.assert_not_called()

@@ -168,3 +168,7 @@ names and skip dependencies are isolated per round, and all observations retain
 unique evidence paths. The deadline stops execution, including tails whose
 branches all skip; it is not treated as successful business completion.
 Repeated navigation keys now fetch fresh window state after each gesture.
+
+### Explicit fixed viewport calibration (suite 0.3.0)
+
+Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw pixels are retained beside a canonical OCR image; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
