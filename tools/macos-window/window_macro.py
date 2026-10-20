@@ -92,7 +92,7 @@ class Observation(str):
 
 def require_text(text, required):
     if isinstance(required, dict):
-        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'timer_regions', 'green_regions', 'red_regions', 'text_regions', 'white_regions', 'page_text_regions', 'page_text_only', 'template_regions'}
+        unknown = set(required) - {'all', 'any', 'none', 'timer_seconds', 'timer_regions', 'green_regions', 'blue_regions', 'red_regions', 'text_regions', 'white_regions', 'page_text_regions', 'page_text_only', 'template_regions'}
         if unknown:
             raise ValueError('Unknown OCR conditions: ' + ', '.join(sorted(unknown)))
         if required.get('page_text_only') and not required.get('page_text_regions'):
@@ -236,6 +236,15 @@ def require_text(text, required):
             text.visual_checks.append({'bounds':region['bounds'], 'green_fraction':ratio})
             if not region.get('min', 0) <= ratio <= region.get('max', 1):
                 raise RuntimeError('Button color condition failed: green fraction ' + str(ratio))
+        for region in required.get('blue_regions', []):
+            if not isinstance(text,Observation):raise RuntimeError('Color conditions require a fresh image')
+            from PIL import Image
+            with Image.open(text.image_path) as image:
+                pixels=image.convert('RGB').crop(region['bounds']).tobytes()
+            ratio=sum(b>130 and b>1.25*r and b>1.05*g
+                      for r,g,b in zip(pixels[::3],pixels[1::3],pixels[2::3]))/(len(pixels)//3)
+            text.visual_checks.append({'bounds':region['bounds'],'blue_fraction':ratio})
+            if not region.get('min',0)<=ratio<=region.get('max',1):raise RuntimeError('Blue button condition failed')
         for region in required.get('red_regions', []):
             if not isinstance(text,Observation):raise RuntimeError('Color conditions require a fresh image')
             from PIL import Image
@@ -284,7 +293,7 @@ def validate_condition(condition, size):
         return
     if not isinstance(condition, dict) or not condition:
         raise ValueError('Expected OCR text list or condition object')
-    if set(condition) - {'all','any','none','timer_seconds','timer_regions','green_regions','red_regions','text_regions','white_regions','page_text_regions','page_text_only','template_regions'}:
+    if set(condition) - {'all','any','none','timer_seconds','timer_regions','green_regions','blue_regions','red_regions','text_regions','white_regions','page_text_regions','page_text_only','template_regions'}:
         raise ValueError('Unknown local observation condition')
     if not condition.get('all') and not condition.get('any'):
         raise ValueError('Conditions require a positive page-text assertion')
@@ -328,7 +337,7 @@ def validate_condition(condition, size):
                 or not 0 <= bounds[0] < bounds[2] <= size[0]
                 or not 0 <= bounds[1] < bounds[3] <= size[1]):
                 raise ValueError('Invalid timer OCR region')
-    for region in condition.get('green_regions',[])+condition.get('white_regions',[])+condition.get('red_regions',[]):
+    for region in condition.get('green_regions',[])+condition.get('blue_regions',[])+condition.get('white_regions',[])+condition.get('red_regions',[]):
         bounds = region['bounds']
         if (len(bounds) != 4 or any(type(v) is not int for v in bounds)
             or not 0 <= bounds[0] < bounds[2] <= size[0]
