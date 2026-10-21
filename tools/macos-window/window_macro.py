@@ -540,6 +540,10 @@ def validate_workflow(workflow):
                 raise ValueError('Key steps require a bounded navigation arrow and completion conditions')
         if step.get('once_per_game_day') and (step['action'] != 'click' or not isinstance(step['once_per_game_day'],str) or not re.fullmatch(r'[a-z0-9_-]{1,80}',step['once_per_game_day'])):
             raise ValueError('Invalid daily operation key')
+        interval = step.get('observe_interval_seconds', 0)
+        if (type(interval) not in (int, float) or not 0 <= interval <= 5
+                or interval and step['action'] != 'observe'):
+            raise ValueError('Observation retry interval requires observe and must be from0 to5 seconds')
         attempts = step.get('observe_attempts', 1)
         if type(attempts) is not int or not 1 <= attempts <= 30:
             raise ValueError('observe_attempts must be between 1 and 30')
@@ -776,6 +780,11 @@ def execute(config, workflow, step_name, backend=None):
                     except RuntimeError:
                         if attempt + 1 == step.get('observe_attempts', 1):
                             raise
+                        interval = step.get('observe_interval_seconds', 0)
+                        if interval:
+                            if time.monotonic() + interval >= client.deadline:
+                                raise FatalExecutionError('Workflow timeout before next observation retry')
+                            time.sleep(interval)
                         before = client.observe(folder, '%02d-before-retry-%02d' % (index, attempt + 1), workflow['reference_size'])
                 if skipped:
                     report['steps'].append({'name':step['name'], 'skipped':True,

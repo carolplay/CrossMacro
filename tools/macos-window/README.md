@@ -172,3 +172,5 @@ Repeated navigation keys now fetch fresh window state after each gesture.
 ### Explicit fixed viewport calibration (suite 0.3.0)
 
 Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw pixels are retained beside a canonical OCR image; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
+
+Observation steps may set `observe_interval_seconds` (0–5 seconds) to space failed-condition retries, within the existing `observe_attempts` and workflow deadline. The default stays zero. This supports waiting for an external game state without busy screenshot polling or repeating input; it does not retry failed input calls.
