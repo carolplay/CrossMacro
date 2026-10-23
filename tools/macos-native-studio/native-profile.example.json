@@ -1,0 +1,9 @@
+{
+  "native_socket": "/Users/YOUR_USER/Library/Application Support/Macro Studio/control.sock",
+  "native_lock_file": "/absolute/path/to/codex-game-skills/local-data/crossmacro/v2/visit.lock",
+  "native_window_id": 12345,
+  "native_expected_size": [788, 1079],
+  "identity_text": ["YOUR_VERIFIED_ID", "YOUR_VERIFIED_KINGDOM"],
+  "language": "zh-Hans",
+  "image_templates": {}
+}

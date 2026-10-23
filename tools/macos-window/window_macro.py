@@ -838,8 +838,8 @@ def execute(config, workflow, step_name, backend=None):
                         'increase':value-inventory[item['name']], 'read_attempts':read_attempt+1}
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
-                    client.js('for(let i=0;i<%d;i++){ await target.pressKey(%s, {durationMs:%d}); await target.getAXState({emit:false}); }' %
-                              (step.get('key_count',1),json.dumps(step['key']),step.get('duration_ms',600)))
+                    import backend_input
+                    backend_input.key(client, step['key'], step.get('key_count',1), step.get('duration_ms',600))
                     for attempt in range(step.get('observe_attempts',1)):
                         after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])
                         try:require_text(after,step['after']);break
@@ -847,6 +847,7 @@ def execute(config, workflow, step_name, backend=None):
                             if attempt+1==step.get('observe_attempts',1):raise
                     entry.update(after_verified=True,after_observations=attempt+1)
                 if step['action'] == 'click':
+                    import backend_input
                     point=resolve_point(step,before,workflow['reference_size'])
                     entry['resolved_point']=point
                     import viewport_calibration as viewport
@@ -869,7 +870,7 @@ def execute(config, workflow, step_name, backend=None):
                         entry['daily_reservation_key'] = daily_reservation[1]
                     entry['click_unix'] = time.time()
                     try:
-                        client.js('await target.click(%s); await target.getAXState();' % json.dumps(point))
+                        backend_input.click(client, point)
                     finally:
                         if capture:
                             try: capture.proc.wait(timeout=audio_spec.get('window_seconds',2)+3)
