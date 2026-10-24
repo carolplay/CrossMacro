@@ -16,8 +16,15 @@ def main():
   print(json.dumps(report,ensure_ascii=False,indent=2));return 2
  if a.operation=='status':print(json.dumps(status,ensure_ascii=False,indent=2));return
  if a.operation=='doctor':
-  from native_doctor import diagnose,signing_identity
+  from native_doctor import diagnose,signing_identity,probe_device_lock
   report=diagnose(status,a.expected_lock)
+  lock_probe=probe_device_lock(status.get('lock_file',''))
+  report['shared_lock_probe']=lock_probe
+  if not lock_probe.get('checked'):
+   report['blockers'].append('shared_lock_unavailable')
+  elif not lock_probe['free_at_check']:
+   report['blockers'].append('shared_lock_busy')
+  report['ready_for_test_window']=not report['blockers']
   try:report['installed_identity']=signing_identity(status['app_path'])
   except (OSError,ValueError) as exc:report['identity_error']=str(exc)
   if report.get('installed_identity',{}).get('bundle_version')!=status.get('version'):report['restart_required']=True
@@ -29,7 +36,7 @@ def main():
  targets=[w for w in windows if w['bundle_id']=='io.crossmacro.macro-studio' and re.fullmatch(r'Macro Studio Test Target(?: — \d+)?',w['title'])]
  if len(targets)!=1:raise ValueError('Open one fresh built-in test target from Studio first')
  w=targets[0];baseline=int(w['title'].rsplit(' — ',1)[1]) if ' — ' in w['title'] else 0;b.config.update(native_window_id=w['id'],native_expected_size=[w['width'],w['height']],native_lock_file=status['lock_file'])
- report={'version':'0.1.0','client_version':'0.1.2','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
+ report={'version':'0.1.0','client_version':'0.1.3','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
  if a.output:a.output.mkdir(parents=True,exist_ok=True)
  try:
   b.start();before=b.request('screenshot');matches=[l for l in before['ocr']['lines'] if '点击计数' in l['text']]

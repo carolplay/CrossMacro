@@ -106,3 +106,34 @@ class DiagnosticFailureTests(unittest.TestCase):
         self.assertEqual('failed', report['status'])
         self.assertEqual('ValueError', report['error_type'])
         b.close.assert_called_once()
+
+class SharedLockProbeTests(unittest.TestCase):
+    def test_existing_busy_lock_is_not_ready_and_contents_unchanged(self):
+        import fcntl
+        from native_doctor import probe_device_lock
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'visit.lock'; path.write_text('preserve')
+            with path.open('r') as held:
+                fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.assertFalse(probe_device_lock(path)['free_at_check'])
+            self.assertTrue(probe_device_lock(path)['free_at_check'])
+            self.assertEqual('preserve', path.read_text())
+
+    def test_missing_lock_is_not_created_and_symlink_is_not_followed(self):
+        from native_doctor import probe_device_lock
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'missing.lock'
+            self.assertFalse(probe_device_lock(path)['checked']); self.assertFalse(path.exists())
+            target = Path(d)/'real.lock'; target.touch()
+            path.symlink_to(target)
+            self.assertFalse(probe_device_lock(path)['checked'])
+
+    def test_doctor_detects_another_executor_even_when_app_has_no_run(self):
+        import json
+        b = Mock(); b.request.return_value = ready()
+        with tempfile.TemporaryDirectory() as d, patch.object(client, 'NativeBackend', return_value=b), patch('native_doctor.probe_device_lock', return_value={'checked': True, 'free_at_check': False}), patch('native_doctor.signing_identity', return_value={'bundle_version': '0.1.0'}), patch.object(sys, 'argv', ['client.py', 'doctor', '--output', d]), patch('builtins.print'):
+            client.main()
+            report = json.loads((Path(d)/'doctor.json').read_text())
+        self.assertFalse(report['ready_for_test_window'])
+        self.assertIn('shared_lock_busy', report['blockers'])
+        b.start.assert_not_called()

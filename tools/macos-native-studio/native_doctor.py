@@ -1,6 +1,9 @@
 """Read-only diagnostics for the app that actually owns native permissions."""
 from pathlib import Path
+import fcntl
+import os
 import plistlib
+import stat
 import subprocess
 
 
@@ -11,6 +14,28 @@ def unavailable(error):
             'error_type': type(error).__name__, 'read_only': True,
             'permission_requested': False, 'input_sent': False,
             'wos_accepted': False, 'lock_screen_supported': False}
+
+
+def probe_device_lock(path):
+    """Probe the existing regular lock without creating or changing any file."""
+    fd = None
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            raise PermissionError('Expected current-user regular lock file')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return {'checked': True, 'free_at_check': False}
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return {'checked': True, 'free_at_check': True,
+                'note': 'Diagnostic snapshot only; begin must acquire the real lock again.'}
+    except OSError as exc:
+        return {'checked': False, 'error_type': type(exc).__name__}
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def diagnose(status, expected_lock=None):
