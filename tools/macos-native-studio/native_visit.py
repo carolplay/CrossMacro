@@ -8,6 +8,7 @@ import signal
 import sys
 import time
 import uuid
+from runtime_storage import require_headroom, atomic_json
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -39,7 +40,11 @@ def main():
     frozen=workflow_versions.suite_identity(selected)
     if not a.execute:
         print(json.dumps({'validation':'passed','backend':'native-macos','backend_version':NATIVE_VERSION,'cua_dependency':False,'package':identity,'versions':frozen,'game_input':False},ensure_ascii=False));return 0
-    config=json.loads(a.config.read_text());folder=a.log_root/(time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:6]);folder.mkdir(parents=True);config['log_dir']=str(folder);config['native_run_id']=folder.name
+    config=json.loads(a.config.read_text())
+    try: storage=require_headroom(a.log_root,config.get('minimum_free_bytes',1024**3))
+    except OSError as exc:
+        print(json.dumps({'status':'blocked','error_category':'evidence_storage','error':str(exc),'device_access':False,'game_input':False}));return 2
+    folder=a.log_root/(time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:6]);folder.mkdir(parents=True);config['log_dir']=str(folder);config['native_run_id']=folder.name
     # No independent local lock: the native app acquires the real shared lock at begin.
     # Never remove guard_command or other configured policy when adapting a profile.
     backend=NativeBackend(config);started=time.time();summary={'tasks':[],'versions':frozen}
@@ -66,8 +71,9 @@ def main():
             except Exception as exc:summary['lease_cleanup_error']=str(exc)
         summary.update(package=identity,backend={'name':'native-macos','version':NATIVE_VERSION,'cua_dependency':False,'status':backend.status},started_unix=started,ended_unix=time.time(),elapsed_seconds=time.time()-started)
         lease_ok=not lease_registered or (summary.get('lease_cleanup',{}).get('lease_updated') and summary['lease_cleanup'].get('actual_lock_released'))
-        summary['runner_version']='0.1.2'
+        summary['runner_version']='0.1.3'
+        summary['storage_preflight']=storage
         summary['status']='passed' if len(summary['tasks'])==len(selected) and all(t['status']=='passed' for t in summary['tasks']) and not summary.get('close_error') and lease_ok else 'completed_with_deviations'
-        (folder/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n');print(json.dumps({'summary':str(folder/'summary.json'),'status':summary['status']}))
+        atomic_json(folder/'summary.json',summary);print(json.dumps({'summary':str(folder/'summary.json'),'status':summary['status']}))
     return 0 if summary['status']=='passed' else 1
 if __name__=='__main__':raise SystemExit(main())

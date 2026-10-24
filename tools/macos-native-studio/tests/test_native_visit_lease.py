@@ -13,7 +13,7 @@ import native_visit
 
 
 class VisitLeaseTests(unittest.TestCase):
-    def run_fixture(self, directory, backend, batch):
+    def run_fixture(self, directory, backend, batch, storage_error=False):
         base = Path(directory); package = base/'package'; package.mkdir(); (package/'scripts').mkdir()
         lock = base/'visit.lock'; lock.touch(); lease = base/'lease.json'; config = base/'profile.json'
         config.write_text(json.dumps({'native_lock_file': str(lock), 'native_lease_file': str(lease), 'native_role': 'fixture'}))
@@ -21,10 +21,19 @@ class VisitLeaseTests(unittest.TestCase):
         pkg = types.ModuleType('macro_package'); pkg.load_manifest = lambda *args: ([('fixture', flow)], {'package_version': 'fixture'})
         batches = types.ModuleType('task_batch'); batches.run_batch = batch
         argv = ['native_visit.py', '--package-root', str(package), '--config', str(config), '--manifest', str(package/'manifest.json'), '--profile', 'main', '--log-root', str(base/'runs'), '--execute']
-        with patch.dict(sys.modules, {'macro_package': pkg, 'task_batch': batches}), patch.object(native_backend, 'NativeBackend', return_value=backend), patch.object(sys, 'argv', argv), patch('builtins.print'):
+        with patch.dict(sys.modules, {'macro_package': pkg, 'task_batch': batches}), patch.object(native_backend, 'NativeBackend', return_value=backend), patch.object(sys, 'argv', argv), patch('builtins.print'), patch.object(native_visit,'require_headroom',return_value={'free_bytes':9999999999,'minimum_bytes':1024**3},side_effect=OSError('insufficient storage') if storage_error else None):
             code = native_visit.main()
-        summary = json.loads(next((base/'runs').glob('*/summary.json')).read_text())
+        saved=list((base/'runs').glob('*/summary.json'))
+        summary = json.loads(saved[0].read_text()) if saved else None
         return code, summary, lease
+
+    def test_insufficient_storage_never_constructs_session_or_creates_run(self):
+        backend=Mock();batch=Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            code,summary,lease=self.run_fixture(directory,backend,batch,storage_error=True)
+            self.assertEqual(2,code);self.assertIsNone(summary)
+            self.assertFalse(lease.exists());self.assertFalse((Path(directory)/'runs').exists())
+        backend.start.assert_not_called();backend.close.assert_not_called();batch.assert_not_called()
 
     def test_denied_native_start_never_writes_lease_or_runs_tasks(self):
         backend = Mock(); backend.status = {}; backend.start.side_effect = PermissionError('not enabled')
