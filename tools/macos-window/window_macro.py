@@ -683,8 +683,15 @@ class CuaMcp:
             path.write_bytes(base64.b64decode(original, validate=True))
             with Image.open(path) as captured:
                 captured_size = list(captured.size)
+        pending_viewport = None
         if captured_size != native_expected:
-            raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
+            import viewport_preflight
+            pending_viewport = viewport_preflight.candidate(
+                self.config, expected_size, captured_size,
+                locked=getattr(self, '_viewport_locked', False))
+            if pending_viewport is None:
+                raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
+            calibrated = pending_viewport[0]
         if calibrated:
             viewport.normalize_frame(path, calibrated)
         raw = subprocess.run([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
@@ -694,7 +701,21 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise FatalExecutionError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
+        observation = Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
+        if pending_viewport:
+            try:
+                require_text(observation, pending_viewport[1])
+            except (RuntimeError, ValueError) as exc:
+                raise FatalExecutionError('Validated viewport entry anchor failed; no input sent: ' + str(exc)) from exc
+            event = {'previous': self.config.get('viewport_calibration'),
+                     'selected': calibrated, 'observed_size': captured_size,
+                     'evidence': str(path), 'input_sent': False,
+                     'method': 'startup-exact-validated-profile', 'window_resized': False}
+            (folder/(label+'-viewport-preflight.json')).write_text(json.dumps(event, ensure_ascii=False, indent=2))
+            self.config['viewport_calibration'] = calibrated
+        # Freeze for this backend's lifetime; a later resize still stops input.
+        self._viewport_locked = True
+        return observation
 
     def close(self):
         if self.proc.poll() is None:

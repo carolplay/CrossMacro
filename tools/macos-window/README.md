@@ -29,6 +29,23 @@ applications/capabilities are declined. No thread identity or grant is synthesiz
 `guard_command` returns an `active` executor field; a non-null value blocks startup.
 Coordinate the app separately: advisory locks alone do not reserve it from others.
 
+### Previously validated window sizes
+
+Executor 0.4.1 optionally accepts `validated_viewport_profiles` in the private
+configuration. Each entry is a complete fixed `viewport_calibration` plus a
+nonempty `validated_anchors` evidence list and an `entry_condition` using the
+normal OCR/image condition format. At the first successful observation only,
+an exact native-size match may be selected after the entry condition passes on
+the normalized frame. This supports returning to a previously validated size
+without manually resizing the app. It does not resize the OS window, infer a
+new scale, ignore identity checks, or grant permissions.
+
+The selected profile is frozen for that backend's lifetime. Unknown dimensions,
+ambiguous profiles, wrong entry pages, and later dimension changes still stop
+input. The original image and `*-viewport-preflight.json` record the selection.
+Leave the option absent to retain strict single-size behavior. A new size needs
+an explicit calibration and live anchor verification before registration.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to
