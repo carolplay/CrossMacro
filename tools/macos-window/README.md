@@ -54,6 +54,14 @@ Persistent mismatches still fail; permission/transport errors propagate without
 retry or backend failover. Invalid originals and a successful recovery event
 are retained separately. This does not fix `noWindowsAvailable` on input.
 
+Executor 0.4.3 applies the same bounded read-only recovery to almost entirely
+white frames, even when their dimensions match. Each RGB channel must have
+at least 97% near-white pixels to trigger the quality check. A genuine white
+transition also needs to settle before execution can continue. These frames
+are never treated as valid page evidence or scaled into a usable observation;
+persistent white frames stop before OCR or input. Live replay remains separate
+from the offline tests.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to

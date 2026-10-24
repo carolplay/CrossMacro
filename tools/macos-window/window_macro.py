@@ -31,6 +31,23 @@ class FatalExecutionError(RuntimeError):
     """Identity or environment failure; recovery must not send more input."""
 
 
+def blank_observation_frame(path):
+    """Reject an almost entirely white transport/transition frame, at any size.
+
+    This is an observation-quality check, never evidence that input is allowed.
+    A legitimate white transition must also settle before page anchors can pass.
+    """
+    from PIL import Image
+    with Image.open(path) as source:
+        pixels = source.convert('RGB')
+        histogram = pixels.histogram()
+        count = pixels.width * pixels.height
+    # Each channel may have up to 3% non-white pixels. By the union bound at
+    # least 91% of pixels are near-white in all three channels.
+    return all(sum(histogram[c * 256 + 250:c * 256 + 256]) / count >= .97
+               for c in range(3))
+
+
 def normalize(text):
     return ''.join(unicodedata.normalize('NFKC', text).translate(str.maketrans({'級':'级'})).split())
 
@@ -676,7 +693,7 @@ class CuaMcp:
         from PIL import Image
         with Image.open(path) as captured:
             captured_size = list(captured.size)
-        if captured_size != native_expected:
+        if captured_size != native_expected or blank_observation_frame(path):
             unusable = path.with_name(path.stem + '-unusable-frame' + path.suffix)
             path.rename(unusable)
             path.write_bytes(self.original_screenshot_bytes())
@@ -684,20 +701,23 @@ class CuaMcp:
                 captured_size = list(captured.size)
         pending_viewport = None
         invalid_sizes = []
+        invalid_reasons = []
         for attempt in range(3):
-            if captured_size == native_expected:
+            blank_frame = blank_observation_frame(path)
+            if captured_size == native_expected and not blank_frame:
                 break
             import viewport_preflight
-            pending_viewport = viewport_preflight.candidate(
+            pending_viewport = None if blank_frame else viewport_preflight.candidate(
                 self.config, expected_size, captured_size,
                 locked=getattr(self, '_viewport_locked', False))
-            if pending_viewport is not None:
+            if pending_viewport is not None and not blank_frame:
                 calibrated = pending_viewport[0]
                 break
             invalid_sizes.append(captured_size)
+            invalid_reasons.append('blank-frame' if blank_frame else 'size-mismatch')
             path.with_name(path.stem+'-invalid-original-'+str(attempt)+path.suffix).write_bytes(path.read_bytes())
             if attempt == 2:
-                raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
+                raise FatalExecutionError('Invalid screenshot frame (%s): %s; expected %s. No input sent.' % (invalid_reasons[-1], captured_size, native_expected))
             # Read-only bounded recovery. Permission errors propagate immediately;
             # no input, coordinate changes, or alternative backend is attempted.
             path.write_bytes(self.original_screenshot_bytes())
@@ -706,6 +726,7 @@ class CuaMcp:
         if invalid_sizes:
             (folder/(label+'-frame-recovery.json')).write_text(json.dumps({
                 'invalid_sizes': invalid_sizes, 'accepted_size': captured_size,
+                'invalid_reasons': invalid_reasons,
                 'extra_original_reads': len(invalid_sizes), 'input_sent': False,
                 'method': 'bounded-same-backend-original-read'}, indent=2))
         if calibrated:
