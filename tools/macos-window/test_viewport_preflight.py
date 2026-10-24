@@ -65,5 +65,19 @@ class PreflightTests(unittest.TestCase):
                 c.observe(Path(d), 'wrong-page', [788, 1079])
             self.assertEqual(c.config['viewport_calibration']['id'], 'old')
             self.assertFalse(any('click' in call.args[0] for call in c.js.call_args_list))
+
+    def test_action_report_records_selected_profile(self):
+        with tempfile.TemporaryDirectory() as d:
+            config = {'log_dir': d, 'viewport_calibration': {'id': 'previous'}}
+            client = Mock()
+            def observe(*args):
+                config['viewport_calibration'] = {'id': 'selected'}
+                return 'CITY'
+            client.observe.side_effect = observe
+            flow = {'reference_size': [788, 1079], 'steps': [
+                {'name': 'entry', 'action': 'observe', 'before': ['CITY']}]}
+            macro.execute(config, flow, 'all', backend=client)
+            result = json.loads(next(Path(d).glob('*/result.json')).read_text())
+            self.assertEqual(result['viewport_calibration']['id'], 'selected')
         c = self.config(); c['validated_viewport_profiles'][0]['reference_size'] = [900, 1200]
         with self.assertRaises(ValueError): v.candidate(c, [788, 1079], [788, 1079])

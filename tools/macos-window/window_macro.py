@@ -769,6 +769,7 @@ def execute(config, workflow, step_name, backend=None):
                         'reason':'Earlier branch skipped; no observation or input required','visual_checks':[]})
                     continue
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
+                report['viewport_calibration'] = copy.deepcopy(config.get('viewport_calibration'))
                 if step.get('finish_if'):
                     try:
                         require_text(before,step['finish_if'])
