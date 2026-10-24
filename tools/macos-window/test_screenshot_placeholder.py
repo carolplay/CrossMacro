@@ -20,12 +20,26 @@ class PlaceholderTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):
    obs=c.observe(Path(d),'frame',[10,12]);self.assertEqual(Image.open(obs.image_path).size,(10,12))
  def test_persistent_placeholder_stops_before_ocr(self):
-  c=self.client([frame((1,1)),original((1,1))])
+  c=self.client([frame((1,1)),original((1,1)),original((1,1)),original((1,1))])
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run') as ocr:
    with self.assertRaises(m.FatalExecutionError):c.observe(Path(d),'frame',[10,12])
-   self.assertEqual(c.js.call_count,2);ocr.assert_not_called()
+   self.assertEqual(c.js.call_count,4);ocr.assert_not_called()
  def test_original_window_resize_stops(self):
-  c=self.client([frame((20,24)),original((20,24))])
+  c=self.client([frame((20,24)),original((20,24)),original((20,24)),original((20,24))])
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run') as ocr:
    with self.assertRaises(m.FatalExecutionError):c.observe(Path(d),'frame',[10,12])
+   self.assertEqual(c.js.call_count,4);ocr.assert_not_called()
+ def test_transient_original_size_recovers_without_input_or_scaling(self):
+  c=self.client([frame((5,6)),original((5,6)),original((10,12))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):
+   obs=c.observe(Path(d),'frame',[10,12])
+   with Image.open(obs.image_path) as image:self.assertEqual(image.size,(10,12))
+   event=json.loads((Path(d)/'frame-frame-recovery.json').read_text())
+   self.assertEqual(event['invalid_sizes'],[[5,6]]);self.assertFalse(event['input_sent'])
+   self.assertTrue((Path(d)/'frame-invalid-original-0.png').exists())
+   self.assertFalse(any('click' in call.args[0] for call in c.js.call_args_list))
+ def test_permission_failure_is_not_retried(self):
+  c=self.client([frame((1,1)),PermissionError('access denied')])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run') as ocr:
+   with self.assertRaises(PermissionError):c.observe(Path(d),'frame',[10,12])
    self.assertEqual(c.js.call_count,2);ocr.assert_not_called()

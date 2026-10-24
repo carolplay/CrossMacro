@@ -54,7 +54,8 @@ class PreflightTests(unittest.TestCase):
             c.observe(Path(d), 'first', [788, 1079])
             self.assertEqual(c.config['viewport_calibration']['native_size'], [788, 1079])
             self.assertTrue((Path(d)/'first-viewport-preflight.json').exists())
-            c.js = Mock(side_effect=[frame((769, 1055)), original((769, 1055))])
+            c.js = Mock(side_effect=[frame((769, 1055)), original((769, 1055)),
+                                    original((769, 1055)), original((769, 1055))])
             with self.assertRaises(macro.FatalExecutionError):
                 c.observe(Path(d), 'changed', [788, 1079])
 

@@ -46,6 +46,14 @@ input. The original image and `*-viewport-preflight.json` record the selection.
 Leave the option absent to retain strict single-size behavior. A new size needs
 an explicit calibration and live anchor verification before registration.
 
+Executor 0.4.2 additionally tolerates transient invalid screenshot bytes with
+at most two extra original-image reads from the same documented API. No input
+is sent while the image is invalid. Only the frozen expected size (or an exact
+validated startup profile with its entry condition) can resume execution.
+Persistent mismatches still fail; permission/transport errors propagate without
+retry or backend failover. Invalid originals and a successful recovery event
+are retained separately. This does not fix `noWindowsAvailable` on input.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to

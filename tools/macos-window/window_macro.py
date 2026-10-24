@@ -643,6 +643,19 @@ class CuaMcp:
     def js(self, code):
         return self.request('tools/call', {'name':'js','arguments':{'code':code,'title':'CrossMacro authorized window macro'}})
 
+    def original_screenshot_bytes(self):
+        result = self.js('var cmOriginalPixels=await target.getScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalPixels).toString("base64")}));')
+        for block in result.get('content', []):
+            if block.get('type') != 'text':
+                continue
+            try:
+                value = json.loads(block['text'])
+            except (ValueError, KeyError):
+                continue
+            if isinstance(value, dict) and isinstance(value.get('originalScreenshotBase64'), str):
+                return base64.b64decode(value['originalScreenshotBase64'], validate=True)
+        raise FatalExecutionError('Original screenshot unavailable after invalid image response')
+
     def observe(self, folder, label, expected_size):
         import viewport_calibration as viewport
         calibrated = viewport.calibration(self.config, expected_size)
@@ -666,32 +679,35 @@ class CuaMcp:
         if captured_size != native_expected:
             unusable = path.with_name(path.stem + '-unusable-frame' + path.suffix)
             path.rename(unusable)
-            retry = self.js('var cmOriginalPixels=await target.getScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalPixels).toString("base64")}));')
-            original = None
-            for block in retry.get('content', []):
-                if block.get('type') != 'text':
-                    continue
-                try:
-                    value = json.loads(block['text'])
-                except (ValueError, KeyError):
-                    continue
-                if isinstance(value, dict) and isinstance(value.get('originalScreenshotBase64'), str):
-                    original = value['originalScreenshotBase64']
-                    break
-            if original is None:
-                raise FatalExecutionError('Original screenshot unavailable after invalid image response')
-            path.write_bytes(base64.b64decode(original, validate=True))
+            path.write_bytes(self.original_screenshot_bytes())
             with Image.open(path) as captured:
                 captured_size = list(captured.size)
         pending_viewport = None
-        if captured_size != native_expected:
+        invalid_sizes = []
+        for attempt in range(3):
+            if captured_size == native_expected:
+                break
             import viewport_preflight
             pending_viewport = viewport_preflight.candidate(
                 self.config, expected_size, captured_size,
                 locked=getattr(self, '_viewport_locked', False))
-            if pending_viewport is None:
+            if pending_viewport is not None:
+                calibrated = pending_viewport[0]
+                break
+            invalid_sizes.append(captured_size)
+            path.with_name(path.stem+'-invalid-original-'+str(attempt)+path.suffix).write_bytes(path.read_bytes())
+            if attempt == 2:
                 raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
-            calibrated = pending_viewport[0]
+            # Read-only bounded recovery. Permission errors propagate immediately;
+            # no input, coordinate changes, or alternative backend is attempted.
+            path.write_bytes(self.original_screenshot_bytes())
+            with Image.open(path) as captured:
+                captured_size = list(captured.size)
+        if invalid_sizes:
+            (folder/(label+'-frame-recovery.json')).write_text(json.dumps({
+                'invalid_sizes': invalid_sizes, 'accepted_size': captured_size,
+                'extra_original_reads': len(invalid_sizes), 'input_sent': False,
+                'method': 'bounded-same-backend-original-read'}, indent=2))
         if calibrated:
             viewport.normalize_frame(path, calibrated)
         raw = subprocess.run([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
