@@ -75,6 +75,15 @@ temporary image. The original failure is retained. Missing unrelated files,
 `noWindowsAvailable`, permission errors, and a failed recovery still propagate;
 this never retries an input or changes an approval.
 
+Executor 0.4.6 adds opt-in `prefer_frame_ocr: true` alongside `crop_ocr: true`
+for regional text predicates. It first accepts exactly one fresh full-frame
+OCR line whose center is inside the declared region, confidence meets the
+existing threshold, and complete normalized text matches the existing pattern.
+Otherwise it uses the existing same-image crop and cache. It never substitutes
+text from another region or an older frame. Existing predicates keep their
+previous behavior unless they opt in; this avoids re-OCRing an already correct
+label when cropping itself makes recognition worse.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to

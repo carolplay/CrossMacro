@@ -152,6 +152,21 @@ def require_text(text, required):
         for region in required.get('text_regions', []):
             if not isinstance(text, Observation) or not text.ocr_data:
                 raise RuntimeError('Regional text requires fresh OCR geometry')
+            if region.get('prefer_frame_ocr'):
+                left, top, right, bottom = region['bounds']
+                data = text.ocr_data
+                matches = []
+                for line in data['lines']:
+                    x, y, w, h = line['bounds']
+                    cx, cy = (x + w / 2) * data['width'], (y + h / 2) * data['height']
+                    if (left <= cx <= right and top <= cy <= bottom
+                        and line.get('confidence', 0) >= region.get('min_confidence', .5)
+                        and re.fullmatch(region['pattern'], normalize(line['text']))):
+                        matches.append(line['text'])
+                if len(matches) == 1:
+                    text.visual_checks.append({'regional_text': matches[0],
+                        'bounds': region['bounds'], 'source': 'full-frame-preferred'})
+                    continue
             if region.get('crop_ocr'):
                 if not text.ocr_config:
                     raise RuntimeError('Cropped text requires local OCR configuration')
@@ -367,7 +382,9 @@ def validate_condition(condition, size):
             or not 0<=bounds[0]<bounds[2]<=size[0] or not 0<=bounds[1]<bounds[3]<=size[1]
             or not isinstance(region.get('pattern'),str) or len(region['pattern'])>200
             or not 0<=region.get('min_confidence',.5)<=1
-            or type(region.get('crop_ocr',False)) is not bool):
+            or type(region.get('crop_ocr',False)) is not bool
+            or type(region.get('prefer_frame_ocr',False)) is not bool
+            or (region.get('prefer_frame_ocr') and not region.get('crop_ocr'))):
             raise ValueError('Invalid regional text assertion')
         re.compile(region['pattern'])
 
