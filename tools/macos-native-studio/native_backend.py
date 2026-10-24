@@ -19,10 +19,13 @@ class NativeBackend:
         self.session = None
         self.deadline = time.monotonic() + 120
         self.status = None
+        self.activity_callback = None
     def request(self, op, **params):
         st = self.socket_path.stat()
         if not stat.S_ISSOCK(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
             raise PermissionError('Native socket ownership/mode invalid')
+        if self.session and self.activity_callback and op not in {'end', 'status', 'windows'}:
+            self.activity_callback()
         params.update(op=op)
         if self.session: params['session'] = self.session
         timeout = min(60, self.deadline - time.monotonic())
@@ -84,4 +87,6 @@ class NativeBackend:
         if self.session:
             self.deadline = time.monotonic() + 10  # Cleanup only; never extends input retries.
             try: self.request('end')
-            finally: self.session = None
+            finally:
+                self.session = None
+                self.activity_callback = None

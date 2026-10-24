@@ -43,18 +43,30 @@ def main():
     # No independent local lock: the native app acquires the real shared lock at begin.
     # Never remove guard_command or other configured policy when adapting a profile.
     backend=NativeBackend(config);started=time.time();summary={'tasks':[],'versions':frozen}
+    lease_path=config.get('native_lease_file');lease_registered=False
     def cancel(signum,frame):raise KeyboardInterrupt('Visit cancelled')
     signal.signal(signal.SIGTERM,cancel)
     try:
-        backend.start();summary=task_batch.run_batch(config,selected,backend)
+        backend.start()
+        if lease_path:
+            import native_lease
+            native_lease.started(lease_path,folder.name,config['native_lock_file'],config.get('native_role'))
+            lease_registered=True
+            backend.activity_callback=lambda:native_lease.heartbeat(lease_path,folder.name)
+        summary=task_batch.run_batch(config,selected,backend)
     except (Exception,KeyboardInterrupt) as exc:
         summary['startup_or_batch_error']=str(exc)
         done={t['task'] for t in summary['tasks']};summary['tasks'].extend({'task':name,'status':'not_executed','reason':'Native startup or batch stopped'} for name,_ in selected if name not in done)
     finally:
         try:backend.close()
         except Exception as exc:summary['close_error']=str(exc)
+        if lease_registered:
+            try:summary['lease_cleanup']=native_lease.finished(lease_path,folder.name,config['native_lock_file'])
+            except Exception as exc:summary['lease_cleanup_error']=str(exc)
         summary.update(package=identity,backend={'name':'native-macos','version':NATIVE_VERSION,'cua_dependency':False,'status':backend.status},started_unix=started,ended_unix=time.time(),elapsed_seconds=time.time()-started)
-        summary['status']='passed' if len(summary['tasks'])==len(selected) and all(t['status']=='passed' for t in summary['tasks']) and not summary.get('close_error') else 'completed_with_deviations'
+        lease_ok=not lease_registered or (summary.get('lease_cleanup',{}).get('lease_updated') and summary['lease_cleanup'].get('actual_lock_released'))
+        summary['runner_version']='0.1.1'
+        summary['status']='passed' if len(summary['tasks'])==len(selected) and all(t['status']=='passed' for t in summary['tasks']) and not summary.get('close_error') and lease_ok else 'completed_with_deviations'
         (folder/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n');print(json.dumps({'summary':str(folder/'summary.json'),'status':summary['status']}))
     return 0 if summary['status']=='passed' else 1
 if __name__=='__main__':raise SystemExit(main())
