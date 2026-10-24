@@ -69,6 +69,12 @@ captures returned the calibrated size during diagnosis; continuous replay still
 requires separate evidence. Retry bounds and permission-error behavior remain
 the same. No CUA identity or approval metadata is supplied.
 
+Executor 0.4.5 permits one fresh atomic observation when the host explicitly
+reports `ENOENT` for its own `com.openai.sky.CUAService/...Screenshot ...`
+temporary image. The original failure is retained. Missing unrelated files,
+`noWindowsAvailable`, permission errors, and a failed recovery still propagate;
+this never retries an input or changes an approval.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to

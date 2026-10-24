@@ -62,3 +62,14 @@ class PlaceholderTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):
    c.observe(Path(d),'frame',[10,12]);event=json.loads((Path(d)/'frame-frame-recovery.json').read_text())
    self.assertEqual(event['invalid_reasons'],['blank-frame']);self.assertFalse(event['input_sent'])
+ def test_missing_host_screenshot_gets_one_fresh_atomic_read(self):
+  error=RuntimeError("ENOENT: no such file or directory, open '/tmp/com.openai.sky.CUAService/Game Screenshot 2026.jpeg'")
+  c=self.client([error,original((10,12))])
+  with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):
+   c.observe(Path(d),'frame',[10,12]);self.assertTrue((Path(d)/'frame-missing-screenshot.json').exists());self.assertEqual(c.js.call_count,2)
+ def test_unrelated_missing_file_or_window_is_not_retried(self):
+  for message in ["ENOENT: no such file or directory, open '/tmp/other.jpeg'", 'noWindowsAvailable', 'Permission denied']:
+   c=self.client([RuntimeError(message)])
+   with self.subTest(message=message),tempfile.TemporaryDirectory() as d:
+    with self.assertRaises(RuntimeError):c.observe(Path(d),'frame',[10,12])
+    self.assertEqual(c.js.call_count,1)

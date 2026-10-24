@@ -677,7 +677,23 @@ class CuaMcp:
         import viewport_calibration as viewport
         calibrated = viewport.calibration(self.config, expected_size)
         native_expected = calibrated["native_size"] if calibrated else expected_size
-        result = self.js('await target.getAXStateAndScreenshot();')
+        try:
+            result = self.js('await target.getAXStateAndScreenshot();')
+        except RuntimeError as exc:
+            # The host can remove its own transient screenshot before delivery.
+            # Only this precise observation error gets one fresh atomic read;
+            # permission, missing-window and unrelated file errors still stop.
+            message = str(exc)
+            if not all(marker in message for marker in (
+                    'ENOENT: no such file or directory',
+                    '/com.openai.sky.CUAService/', 'Screenshot ')):
+                raise
+            data = self.original_screenshot_bytes()
+            (folder / (label + '-missing-screenshot.json')).write_text(json.dumps({
+                'error': message, 'input_sent': False,
+                'method': 'one-fresh-atomic-read'}, indent=2))
+            result = {'content': [{'type': 'image', 'mimeType': 'image/jpeg',
+                                   'data': base64.b64encode(data).decode()}]}
         images = [c for c in result.get('content',[]) if c.get('type') == 'image']
         if len(images) != 1:
             raise RuntimeError('Expected one target-window screenshot')
