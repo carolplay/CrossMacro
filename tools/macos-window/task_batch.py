@@ -32,11 +32,18 @@ def restore_anchor(config, workflow, backend):
     anchor = contract.get('anchor')
     if not anchor:
         return {'status': 'unrecovered', 'reason': 'No declared anchor'}
+    recovery_budget = contract.get('recovery_timeout_seconds', 60)
+    if type(recovery_budget) is not int or not 1 <= recovery_budget <= 120:
+        raise ValueError('Invalid recovery timeout')
+    deadline = time.monotonic() + recovery_budget
+    backend.deadline = deadline
     folder = Path(config['log_dir']) / ('anchor-' + str(time.time_ns()))
     folder.mkdir(parents=True)
     for index in range(contract.get('max_exit_steps', 4) + 1):
+        macro.require_workflow_time(deadline)
         observed = backend.observe(folder, str(index), workflow['reference_size'])
         for read_attempt in range(3):
+            macro.require_workflow_time(deadline)
             # Re-read transient OCR/animations, never click an unknown page.
             if any(word in str(observed) for word in ('另一台设备', '重新连接', '重新登录')):
                 raise macro.FatalExecutionError('Session lost during anchor recovery')
@@ -59,7 +66,8 @@ def restore_anchor(config, workflow, backend):
         # The normal executor re-observes and re-checks immediately before input.
         macro.execute(config, {'reference_size': workflow['reference_size'], 'steps': [step],
             'action_id': workflow.get('action_id', 'unversioned') + '/exit/' + step['name'],
-            'action_version': workflow.get('action_version', 'unversioned')}, 'all', backend=backend)
+            'action_version': workflow.get('action_version', 'unversioned')}, 'all', backend=backend,
+            absolute_deadline=deadline)
     return {'status': 'unrecovered', 'reason': 'Exit step budget exhausted', 'evidence': str(folder)}
 
 
@@ -71,14 +79,18 @@ def run_batch(config, tasks, backend):
     for index, (name, workflow) in enumerate(tasks):
         begin = time.time()
         entry = {'task': name, 'workflow': workflow_identity(workflow)}
+        anchor_attempted = False
         try:
             macro.execute(config, workflow, 'all', backend=backend)
             entry['status'] = 'passed'
+            anchor_attempted = True
             entry['anchor'] = restore_anchor(config, workflow, backend)
         except (Exception, KeyboardInterrupt) as exc:
-            entry.update(status='deviation', error=str(exc))
+            entry.update(status='deviation', error=str(exc), error_type=type(exc).__name__)
             if fatal(exc):
                 entry.update(status='fatal', anchor={'status': 'not_attempted'})
+            elif anchor_attempted:
+                entry['anchor'] = {'status': 'unrecovered', 'reason': str(exc)}
             else:
                 try:
                     entry['anchor'] = restore_anchor(config, workflow, backend)

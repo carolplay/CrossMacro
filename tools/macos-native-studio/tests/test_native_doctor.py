@@ -82,3 +82,27 @@ class DoctorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'did not increase'):
                 client.main()
         b.close.assert_called_once()
+
+class DiagnosticFailureTests(unittest.TestCase):
+    def test_stopped_app_saves_unavailable_report_without_other_operations(self):
+        import json
+        b = Mock(); b.request.side_effect = FileNotFoundError('no socket')
+        with tempfile.TemporaryDirectory() as d, patch.object(client, 'NativeBackend', return_value=b), patch.object(sys, 'argv', ['client.py', 'doctor', '--output', d]), patch('builtins.print'):
+            self.assertEqual(2, client.main())
+            report = json.loads((Path(d)/'doctor.json').read_text())
+        self.assertFalse(report['ready_for_test_window'])
+        self.assertEqual(['native_app_unavailable'], report['blockers'])
+        b.request.assert_called_once_with('status'); b.start.assert_not_called()
+
+    def test_failed_probe_creates_evidence_directory_and_preserves_error(self):
+        import json
+        b = DoctorTests().self_test_backend(7)
+        with tempfile.TemporaryDirectory() as d:
+            output = Path(d)/'new'/'evidence'
+            with patch.object(client, 'NativeBackend', return_value=b), patch.object(sys, 'argv', ['client.py', 'self-test', '--execute', '--output', str(output)]):
+                with self.assertRaisesRegex(ValueError, 'did not increase'):
+                    client.main()
+            report = json.loads((output/'result.json').read_text())
+        self.assertEqual('failed', report['status'])
+        self.assertEqual('ValueError', report['error_type'])
+        b.close.assert_called_once()

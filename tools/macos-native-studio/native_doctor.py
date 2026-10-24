@@ -4,6 +4,15 @@ import plistlib
 import subprocess
 
 
+def unavailable(error):
+    """A stopped or inaccessible App is a diagnostic result, not readiness."""
+    return {'ready_for_test_window': False, 'blockers': ['native_app_unavailable'],
+            'next_steps': ['打开Macro Studio后重新检查；不自动启动其他执行后端'],
+            'error_type': type(error).__name__, 'read_only': True,
+            'permission_requested': False, 'input_sent': False,
+            'wos_accepted': False, 'lock_screen_supported': False}
+
+
 def diagnose(status, expected_lock=None):
     blockers = []
     steps = []

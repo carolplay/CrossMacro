@@ -1,7 +1,7 @@
 import json,subprocess,tempfile,time,unittest
 from pathlib import Path
 from unittest.mock import patch
-from window_macro import read_frame_ocr,FatalExecutionError
+from window_macro import read_frame_ocr,WorkflowBudgetExceeded
 class OcrTimeoutTests(unittest.TestCase):
  def test_timeout_retries_same_saved_command_once_and_keeps_evidence(self):
   with tempfile.TemporaryDirectory() as d:
@@ -20,6 +20,6 @@ class OcrTimeoutTests(unittest.TestCase):
    self.assertEqual(run.call_count,1)
  def test_expired_deadline_never_starts_ocr(self):
   with tempfile.TemporaryDirectory() as d,patch('window_macro.subprocess.run') as run:
-   with self.assertRaises(FatalExecutionError):read_frame_ocr(['vision'],time.monotonic()-1,Path(d)/'retry.json')
+   with self.assertRaises(WorkflowBudgetExceeded):read_frame_ocr(['vision'],time.monotonic()-1,Path(d)/'retry.json')
    run.assert_not_called()
 if __name__=='__main__':unittest.main()

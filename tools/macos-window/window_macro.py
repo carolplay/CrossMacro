@@ -31,13 +31,22 @@ class FatalExecutionError(RuntimeError):
     """Identity or environment failure; recovery must not send more input."""
 
 
+class WorkflowBudgetExceeded(RuntimeError):
+    """Only the local action budget expired; declared page recovery may run."""
+
+
+def require_workflow_time(deadline):
+    if time.monotonic() >= deadline:
+        raise WorkflowBudgetExceeded('Workflow execution budget exhausted')
+
+
 def read_frame_ocr(command, deadline, retry_log):
     """Retry one local OCR timeout on the same saved image, never UI input."""
     events = []
     for attempt in range(2):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise FatalExecutionError('Workflow timeout before local OCR')
+            raise WorkflowBudgetExceeded('Workflow budget exhausted before local OCR')
         try:
             result = subprocess.run(command, capture_output=True, text=True,
                                     check=True, timeout=min(15, remaining))
@@ -513,6 +522,9 @@ def workflow_steps(workflow, steps):
 
 
 def validate_workflow(workflow):
+    recovery_budget = workflow.get('task_contract', {}).get('recovery_timeout_seconds', 60)
+    if type(recovery_budget) is not int or not 1 <= recovery_budget <= 120:
+        raise ValueError('recovery_timeout_seconds must be an integer from1 to120')
     budget = workflow.get('execution_timeout_seconds', 120)
     if type(budget) is not int or not 1 <= budget <= 1800:
         raise ValueError('execution_timeout_seconds must be an integer from1 to1800')
@@ -826,7 +838,7 @@ class CuaMcp:
         if not self.error_thread.is_alive(): self.proc.stderr.close()
 
 
-def execute(config, workflow, step_name, backend=None):
+def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
     validate_workflow(workflow)
     steps = workflow['steps'] if step_name == 'all' else [s for s in workflow['steps'] if s['name'] == step_name]
     if not steps:
@@ -852,10 +864,11 @@ def execute(config, workflow, step_name, backend=None):
                 client = CuaMcp(config)
                 client.start()
             client.deadline = time.monotonic() + workflow.get('execution_timeout_seconds', min(120, config.get('timeout_seconds',45)))
+            if absolute_deadline is not None:
+                client.deadline = min(client.deadline, absolute_deadline)
             inventory = {}
             for index, step in enumerate(workflow_steps(workflow, steps)):
-                if time.monotonic() >= client.deadline:
-                    raise FatalExecutionError('Workflow execution timeout')
+                require_workflow_time(client.deadline)
                 # A skipped branch has no business action or observation to do.
                 # The next eligible step always observes afresh before any input.
                 if any(entry['name'] == step.get('skip_if_step_skipped') and entry.get('skipped') for entry in report['steps']):
@@ -899,7 +912,7 @@ def execute(config, workflow, step_name, backend=None):
                         interval = step.get('observe_interval_seconds', 0)
                         if interval:
                             if time.monotonic() + interval >= client.deadline:
-                                raise FatalExecutionError('Workflow timeout before next observation retry')
+                                raise WorkflowBudgetExceeded('Workflow budget exhausted before next observation retry')
                             time.sleep(interval)
                         before = client.observe(folder, '%02d-before-retry-%02d' % (index, attempt + 1), workflow['reference_size'])
                 if skipped:
@@ -916,6 +929,7 @@ def execute(config, workflow, step_name, backend=None):
                         require_text(before, identity)
                     except RuntimeError as exc:
                         raise FatalExecutionError('Identity mismatch: ' + str(exc)) from exc
+                require_workflow_time(client.deadline)
                 entry = {'name':step['name'],'before_verified':True,
                          'verified_before_conditions':step['before'],
                          'identity_verified':bool(step.get('verify_identity')),
@@ -955,6 +969,7 @@ def execute(config, workflow, step_name, backend=None):
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
                     import backend_input
+                    require_workflow_time(client.deadline)
                     backend_input.key(client, step['key'], step.get('key_count',1), step.get('duration_ms',600))
                     for attempt in range(step.get('observe_attempts',1)):
                         after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])
@@ -986,6 +1001,7 @@ def execute(config, workflow, step_name, backend=None):
                         entry['daily_reservation_key'] = daily_reservation[1]
                     entry['click_unix'] = time.time()
                     try:
+                        require_workflow_time(client.deadline)
                         backend_input.click(client, point)
                     finally:
                         if capture:
@@ -1027,7 +1043,7 @@ def execute(config, workflow, step_name, backend=None):
                 print(json.dumps({'status':'step_passed','step':step['name']},ensure_ascii=False),flush=True)
             report['status'] = 'passed'
         except (Exception, KeyboardInterrupt) as exc:
-            report.update(status='failed',error=str(exc))
+            report.update(status='failed',error=str(exc),error_type=type(exc).__name__)
             raise
         finally:
             if client is not None and backend is None:
