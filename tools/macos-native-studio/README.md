@@ -14,10 +14,20 @@ Some mixed Command Line Tools installations contain two SwiftBridging module map
 
 ## First setup (human-controlled)
 
+Run `python3 tools/macos-native-studio/client.py doctor --expected-lock
+/absolute/path/to/visit.lock --output /private/diagnostics` first. This only
+reads the running app's permission/session state and installed code-signing
+identity. It reports screen recording, Accessibility, session, input enablement,
+active execution and shared-lock mismatch separately; it does not request or
+grant access. A passing diagnostic means ready for the built-in test, not that
+WOS, background input or lock-screen operation has passed. Ad-hoc signing is
+reported explicitly; do not assume a stable bundle ID preserves TCC after a
+rebuild. Running and installed bundle versions are kept separate.
+
 1. While the Mac is unlocked, open the built app. Use its **申请系统权限** button and grant Screen Recording and Accessibility to **Macro Studio** in macOS settings. This is a new native app, not inherited ChatGPT/Python permission.
 2. Put `config.example.json` at `~/Library/Application Support/Macro Studio/config.json` and replace its lock path with the real existing V2 `visit.lock`. Restart the app before testing. No second daily scheduler is installed.
 3. Open the built-in test window, then click **允许本次输入** in Studio. The first test is restricted to this window, not WOS.
-4. Use `python3 tools/macos-native-studio/client.py status`, then `windows`. `self-test --execute --output /private/test/evidence` performs one OCR-targeted test-button click and verifies the counter became 1.
+4. Use `python3 tools/macos-native-studio/client.py status`, then `windows`. `self-test --execute --output /private/test/evidence` performs one OCR-targeted test-button click and verifies the observed counter increases by exactly one. Repeated tests need no app restart; sending an event without the corresponding counter change fails.
 5. Stop releases the real flock and revokes input. Session/screen sleep notifications and a 120-second idle watchdog also stop it. This prototype requires enabling each input session; unattended scheduling is a later milestone.
 
 A preflight result, accepted event or interface success is not proof that the UI changed. Background input, pointer isolation, WOS touch alternatives, image geometry, permissions after restart/update, capture with the monitor asleep, and locked-session behavior all require separate evidence. V3 0.1.0 does **not** support locked operation. The WindowServer lock diagnostic is best-effort, not an unlock mechanism or a substitute for explicit session/permission checks.
