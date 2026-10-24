@@ -22,7 +22,7 @@ def main():
     a=p.parse_args();engine=Path(__file__).resolve().parents[1]/'macos-window'
     sys.path.insert(0,str(engine));sys.path.insert(0,str(a.package_root.resolve()/'scripts'))
     import macro_package,window_macro,task_batch,workflow_versions
-    from native_backend import NativeBackend,NATIVE_VERSION
+    from native_backend import NativeBackend,NATIVE_VERSION,failure_details
     selected,identity=macro_package.load_manifest(a.manifest.resolve(),a.profile,a.package_root.resolve())
     if a.tasks:
         available={name for name,_ in selected}
@@ -56,6 +56,7 @@ def main():
         summary=task_batch.run_batch(config,selected,backend)
     except (Exception,KeyboardInterrupt) as exc:
         summary['startup_or_batch_error']=str(exc)
+        summary['failure_details']=failure_details(exc)
         done={t['task'] for t in summary['tasks']};summary['tasks'].extend({'task':name,'status':'not_executed','reason':'Native startup or batch stopped'} for name,_ in selected if name not in done)
     finally:
         try:backend.close()
@@ -65,7 +66,7 @@ def main():
             except Exception as exc:summary['lease_cleanup_error']=str(exc)
         summary.update(package=identity,backend={'name':'native-macos','version':NATIVE_VERSION,'cua_dependency':False,'status':backend.status},started_unix=started,ended_unix=time.time(),elapsed_seconds=time.time()-started)
         lease_ok=not lease_registered or (summary.get('lease_cleanup',{}).get('lease_updated') and summary['lease_cleanup'].get('actual_lock_released'))
-        summary['runner_version']='0.1.1'
+        summary['runner_version']='0.1.2'
         summary['status']='passed' if len(summary['tasks'])==len(selected) and all(t['status']=='passed' for t in summary['tasks']) and not summary.get('close_error') and lease_ok else 'completed_with_deviations'
         (folder/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n');print(json.dumps({'summary':str(folder/'summary.json'),'status':summary['status']}))
     return 0 if summary['status']=='passed' else 1

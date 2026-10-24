@@ -2,7 +2,7 @@
 """Read local Studio state, or run an explicitly requested built-in-window probe."""
 import argparse,base64,json,re,tempfile,time
 from pathlib import Path
-from native_backend import NativeBackend
+from native_backend import NativeBackend,failure_details
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('operation',choices=['status','doctor','windows','self-test']);p.add_argument('--output',type=Path);p.add_argument('--expected-lock');p.add_argument('--execute',action='store_true');a=p.parse_args()
@@ -49,7 +49,7 @@ def main():
    a.output.mkdir(parents=True,exist_ok=True)
    for name,frame in [('before',before),('after',after)]: (a.output/(name+'.png')).write_bytes(base64.b64decode(frame['png_base64']))
  except (Exception,KeyboardInterrupt) as exc:
-  report.update(error=str(exc),error_type=type(exc).__name__)
+  report.update(failure_details(exc))
   raise
  finally:
   try:b.close()

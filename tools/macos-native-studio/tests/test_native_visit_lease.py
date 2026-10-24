@@ -34,6 +34,8 @@ class VisitLeaseTests(unittest.TestCase):
             self.assertFalse(lease.exists())
         self.assertEqual(1, code); batch.assert_not_called(); backend.close.assert_called_once()
         self.assertEqual('not_executed', summary['tasks'][0]['status'])
+        self.assertEqual('access_or_policy_unspecified', summary['failure_details']['error_category'])
+        self.assertNotIn('error_code', summary['failure_details'])
 
     def test_successful_batch_records_actual_lock_and_releases_metadata_after_close(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -11,6 +11,39 @@ import uuid
 
 NATIVE_VERSION = '0.1.0'
 
+
+class NativeOperationBlocked(PermissionError):
+    """All App refusals stop input; the category explains which layer refused."""
+    def __init__(self, code):
+        self.code = str(code)
+        if self.code.startswith('permission_denied:'):
+            self.category = 'system_permission'
+        elif self.code in {'input_not_enabled_in_app', 'active_executor_or_disabled'}:
+            # App combines several checks; do not pretend this proves missing TCC.
+            self.category = 'input_activation_or_session'
+        elif self.code in {'session_inactive', 'invalid_session'}:
+            self.category = 'session'
+        elif self.code in {'active_executor', 'lock_file_unavailable'}:
+            self.category = 'execution_lock'
+        elif self.code in {'window_size_changed', 'window_size_changed_or_target_gone', 'target_gone', 'target_not_allowed'}:
+            self.category = 'target_window'
+        else:
+            self.category = 'native_operation'
+        super().__init__('Native operation blocked: ' + self.code)
+
+
+def failure_details(exc):
+    result = {'error': str(exc), 'error_type': type(exc).__name__}
+    if isinstance(exc, NativeOperationBlocked):
+        result.update(error_code=exc.code, error_category=exc.category)
+    elif isinstance(exc, (ConnectionError, TimeoutError, FileNotFoundError)):
+        result['error_category'] = 'transport_or_app_unavailable'
+    elif isinstance(exc, PermissionError):
+        result['error_category'] = 'access_or_policy_unspecified'
+    else:
+        result['error_category'] = 'runtime_or_configuration'
+    return result
+
 class NativeBackend:
     native_protocol = True
     def __init__(self, config):
@@ -39,12 +72,12 @@ class NativeBackend:
                 data.extend(chunk)
                 if len(data) > 32 * 1024 * 1024: raise ValueError('Native response exceeds frame limit')
         reply = json.loads(data.split(b'\n', 1)[0])
-        if not reply.get('ok'): raise PermissionError('Native operation blocked: ' + str(reply.get('error')))
+        if not reply.get('ok'): raise NativeOperationBlocked(reply.get('error'))
         return reply['result']
     def start(self):
         self.status = self.request('status')
         if self.status.get('cua_dependency') is not False: raise ValueError('Native backend capability mismatch')
-        if not self.status.get('input_enabled'): raise PermissionError('Enable input in Macro Studio first')
+        if not self.status.get('input_enabled'): raise NativeOperationBlocked('input_not_enabled_in_app')
         expected = self.config.get('native_expected_size')
         wid = self.config.get('native_window_id')
         if not isinstance(wid, int) or not isinstance(expected, list): raise ValueError('Explicit native window ID and size required')
