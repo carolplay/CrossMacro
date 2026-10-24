@@ -423,6 +423,29 @@ def validate_condition(condition, size):
 
 
 
+def text_target_points(data, target, size, origin, extent):
+    left, top, right, bottom = target['bounds']
+    matches = []
+    for line in data['lines']:
+        value, label = normalize(line['text']), normalize(target['text'])
+        if target.get('regex', False):
+            if not re.fullmatch(target['text'], value):
+                continue
+        elif not (value == label if target.get('exact', True) else label in value):
+            continue
+        if line.get('confidence', 0) < target.get('min_confidence', .8):
+            continue
+        x, y, w, h = line['bounds']
+        cx, cy = origin[0] + (x+w/2)*extent[0], origin[1] + (y+h/2)*extent[1]
+        if left <= cx <= right and top <= cy <= bottom:
+            offset = target.get('offset', [0, 0])
+            point = [round(cx)+offset[0], round(cy)+offset[1]]
+            if not all(0 <= v < size[i] for i, v in enumerate(point)):
+                raise RuntimeError('OCR target resolves outside the reference window')
+            matches.append(point)
+    return matches
+
+
 def resolve_point(step, observation, size):
     """Resolve one bounded OCR label locally; ambiguity never sends input."""
     if step.get('image_target'):
@@ -464,6 +487,12 @@ def resolve_point(step, observation, size):
         raise RuntimeError('Text targets require fresh local OCR geometry')
     left,top,right,bottom=target['bounds'];matches=[]
     data=observation.ocr_data;origin=[0,0];extent=size
+    if target.get('prefer_frame_ocr'):
+        preferred = text_target_points(data, target, size, origin, extent)
+        if len(preferred) == 1:
+            observation.visual_checks.append({'text_target_source': 'full-frame-preferred',
+                'bounds': target['bounds'], 'resolved_point': preferred[0]})
+            return preferred[0]
     if target.get('crop_ocr'):
         if not observation.ocr_config:
             raise RuntimeError('Cropped targets require local OCR configuration')
@@ -481,19 +510,7 @@ def resolve_point(step, observation, size):
             observation.timer_regions[key]=data
         data=observation.timer_regions[key];origin=[left,top];extent=[right-left,bottom-top]
         observation.visual_checks.append({'target_crop_bounds':target['bounds'],'labels':[line['text'] for line in data['lines']]})
-    for line in data['lines']:
-        value=normalize(line['text']);label=normalize(target['text'])
-        if target.get('regex',False):
-            if not re.fullmatch(target['text'],value):continue
-        elif not (value==label if target.get('exact',True) else label in value):continue
-        if line.get('confidence',0)<target.get('min_confidence',.8):continue
-        x,y,w,h=line['bounds'];cx,cy=origin[0]+(x+w/2)*extent[0],origin[1]+(y+h/2)*extent[1]
-        if left<=cx<=right and top<=cy<=bottom:
-            offset=target.get('offset',[0,0])
-            point=[round(cx)+offset[0],round(cy)+offset[1]]
-            if not all(0 <= v < size[i] for i,v in enumerate(point)):
-                raise RuntimeError('OCR target resolves outside the reference window')
-            matches.append(point)
+    matches = text_target_points(data, target, size, origin, extent)
     if target.get('select')=='top-left' and matches:
         return min(matches,key=lambda point:(point[1],point[0]))
     if len(matches)!=1:raise RuntimeError('Expected exactly one confident text target; found '+str(len(matches)))
@@ -580,11 +597,13 @@ def validate_workflow(workflow):
                 target=step['text_target']
                 if not isinstance(target,dict):raise ValueError('text_target must be an object')
                 bounds=target.get('bounds',[])
-                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr'}
+                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr','prefer_frame_ocr'}
                     or not isinstance(target.get('text'),str) or not normalize(target['text'])
                     or type(target.get('exact',True)) is not bool
                     or type(target.get('regex',False)) is not bool
                     or type(target.get('crop_ocr',False)) is not bool
+                    or type(target.get('prefer_frame_ocr',False)) is not bool
+                    or target.get('prefer_frame_ocr') and not target.get('crop_ocr')
                     or target.get('select','unique') not in ('unique','top-left')
                     or len(target.get('text',''))>200
                     or not isinstance(target.get('offset',[0,0]),list)
