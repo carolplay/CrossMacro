@@ -21,6 +21,13 @@ class StorageTests(unittest.TestCase):
     with self.assertRaises(OSError):storage.require_headroom(target,101)
     self.assertEqual(100,storage.require_headroom(target,100)['free_bytes'])
    self.assertFalse(target.parent.exists())
+ def test_low_space_observation_stops_before_capture_request(self):
+  from native_backend import NativeBackend
+  from unittest.mock import Mock
+  backend=NativeBackend({});backend.request=Mock()
+  with patch.object(storage,'require_headroom',side_effect=OSError('storage reserve exhausted')):
+   with self.assertRaises(OSError):backend.observe('/tmp','frame',[100,100])
+  backend.request.assert_not_called()
  def test_invalid_threshold_rejected(self):
   for threshold in [True,-1,1.5]:
    with self.assertRaises(ValueError):storage.require_headroom('/tmp',threshold)

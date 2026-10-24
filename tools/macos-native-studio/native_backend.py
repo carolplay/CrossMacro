@@ -95,6 +95,8 @@ class NativeBackend:
         if type(count) is not int or not 1 <= count <= 20: raise ValueError('Invalid key count')
         for _ in range(count): self.request('key', key=key, duration_ms=duration_ms)
     def observe(self, folder, label, expected_size):
+        from runtime_storage import require_headroom
+        require_headroom(folder,self.config.get('minimum_observation_free_bytes',64*1024**2))
         import viewport_calibration as viewport
         from window_macro import Observation, FatalExecutionError
         reply = self.request('screenshot')
