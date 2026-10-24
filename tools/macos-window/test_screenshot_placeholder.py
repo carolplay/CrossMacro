@@ -19,7 +19,7 @@ class PlaceholderTests(unittest.TestCase):
  def test_placeholder_reads_original_pixels_without_input(self):
   c=self.client([frame((1,1)),original((10,12))])
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))) as ocr:
-   c.observe(Path(d),'frame',[10,12]);self.assertIn('getScreenshot({emit:false})',c.js.call_args_list[1].args[0]);self.assertNotIn('click',c.js.call_args_list[1].args[0]);self.assertTrue((Path(d)/'frame-unusable-frame.png').exists());ocr.assert_called_once()
+   c.observe(Path(d),'frame',[10,12]);self.assertIn('getAXStateAndScreenshot({emit:false})',c.js.call_args_list[1].args[0]);self.assertNotIn('click',c.js.call_args_list[1].args[0]);self.assertTrue((Path(d)/'frame-unusable-frame.png').exists());ocr.assert_called_once()
  def test_transport_thumbnail_uses_original_not_scaling(self):
   c=self.client([frame((5,6)),original((10,12))])
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))):

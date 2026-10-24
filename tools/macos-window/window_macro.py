@@ -661,7 +661,7 @@ class CuaMcp:
         return self.request('tools/call', {'name':'js','arguments':{'code':code,'title':'CrossMacro authorized window macro'}})
 
     def original_screenshot_bytes(self):
-        result = self.js('var cmOriginalPixels=await target.getScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalPixels).toString("base64")}));')
+        result = self.js('var cmOriginalObservation=await target.getAXStateAndScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalObservation.screenshot).toString("base64")}));')
         for block in result.get('content', []):
             if block.get('type') != 'text':
                 continue

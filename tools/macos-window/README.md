@@ -62,6 +62,13 @@ are never treated as valid page evidence or scaled into a usable observation;
 persistent white frames stop before OCR or input. Live replay remains separate
 from the offline tests.
 
+Executor 0.4.4 obtains recovery bytes from the documented atomic
+`getAXStateAndScreenshot({emit:false})` result. This refreshes state and pixels
+together and avoids relying on an emitted image content block. Four read-only
+captures returned the calibrated size during diagnosis; continuous replay still
+requires separate evidence. Retry bounds and permission-error behavior remain
+the same. No CUA identity or approval metadata is supplied.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to
