@@ -1,4 +1,4 @@
-import base64,io,json,tempfile,unittest
+import base64,io,json,tempfile,unittest,time
 from pathlib import Path
 from unittest.mock import Mock,patch
 from PIL import Image
@@ -15,7 +15,7 @@ def white_frame(size, raw=False):
  return {'content':[{'type':'image','mimeType':'image/png','data':encoded_white}]}
 class PlaceholderTests(unittest.TestCase):
  def client(self,replies):
-  c=m.CuaMcp.__new__(m.CuaMcp);c.config={'ocr_binary':'unused','language':'en-US'};c.js=Mock(side_effect=replies);return c
+  c=m.CuaMcp.__new__(m.CuaMcp);c.config={'ocr_binary':'unused','language':'en-US'};c.deadline=time.monotonic()+60;c.js=Mock(side_effect=replies);return c
  def test_placeholder_reads_original_pixels_without_input(self):
   c=self.client([frame((1,1)),original((10,12))])
   with tempfile.TemporaryDirectory() as d,patch.object(m.subprocess,'run',return_value=Mock(stdout=json.dumps({'width':10,'height':12,'lines':[]}))) as ocr:

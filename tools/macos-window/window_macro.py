@@ -31,6 +31,30 @@ class FatalExecutionError(RuntimeError):
     """Identity or environment failure; recovery must not send more input."""
 
 
+def read_frame_ocr(command, deadline, retry_log):
+    """Retry one local OCR timeout on the same saved image, never UI input."""
+    events = []
+    for attempt in range(2):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise FatalExecutionError('Workflow timeout before local OCR')
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    check=True, timeout=min(15, remaining))
+        except subprocess.TimeoutExpired:
+            events.append({'attempt': attempt + 1, 'error': 'local-ocr-timeout',
+                           'same_saved_frame': True, 'input_sent': False})
+            Path(retry_log).write_text(json.dumps(events, indent=2))
+            if attempt == 1 or time.monotonic() >= deadline:
+                raise
+        else:
+            if events:
+                events.append({'attempt': attempt + 1, 'status': 'recovered',
+                               'same_saved_frame': True, 'input_sent': False})
+                Path(retry_log).write_text(json.dumps(events, indent=2))
+            return result
+
+
 def blank_observation_frame(path):
     """Reject an almost entirely white transport/transition frame, at any size.
 
@@ -764,8 +788,8 @@ class CuaMcp:
                 'method': 'bounded-same-backend-original-read'}, indent=2))
         if calibrated:
             viewport.normalize_frame(path, calibrated)
-        raw = subprocess.run([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
-            capture_output=True,text=True,check=True,timeout=15)
+        raw = read_frame_ocr([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
+            self.deadline, folder/(label+'-ocr-recovery.json'))
         ocr = json.loads(raw.stdout)
         (folder/(label+'-ocr.json')).write_text(json.dumps(ocr,ensure_ascii=False,indent=2))
         size = [ocr['width'],ocr['height']]

@@ -1,4 +1,5 @@
 import copy
+import time
 import unittest
 import viewport_preflight as v
 import json
@@ -39,6 +40,7 @@ class PreflightTests(unittest.TestCase):
 
     def client(self, lines):
         c = macro.CuaMcp.__new__(macro.CuaMcp)
+        c.deadline = time.monotonic() + 60
         c.config = self.config()
         c.config.update(ocr_binary='unused', viewport_calibration={
             'id': 'old', 'reference_size': [788, 1079],
