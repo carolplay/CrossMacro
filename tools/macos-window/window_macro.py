@@ -31,6 +31,56 @@ class FatalExecutionError(RuntimeError):
     """Identity or environment failure; recovery must not send more input."""
 
 
+class WorkflowBudgetExceeded(RuntimeError):
+    """Only the local action budget expired; declared page recovery may run."""
+
+
+def require_workflow_time(deadline):
+    if time.monotonic() >= deadline:
+        raise WorkflowBudgetExceeded('Workflow execution budget exhausted')
+
+
+def read_frame_ocr(command, deadline, retry_log):
+    """Retry one local OCR timeout on the same saved image, never UI input."""
+    events = []
+    for attempt in range(2):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise WorkflowBudgetExceeded('Workflow budget exhausted before local OCR')
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    check=True, timeout=min(15, remaining))
+        except subprocess.TimeoutExpired:
+            events.append({'attempt': attempt + 1, 'error': 'local-ocr-timeout',
+                           'same_saved_frame': True, 'input_sent': False})
+            Path(retry_log).write_text(json.dumps(events, indent=2))
+            if attempt == 1 or time.monotonic() >= deadline:
+                raise
+        else:
+            if events:
+                events.append({'attempt': attempt + 1, 'status': 'recovered',
+                               'same_saved_frame': True, 'input_sent': False})
+                Path(retry_log).write_text(json.dumps(events, indent=2))
+            return result
+
+
+def blank_observation_frame(path):
+    """Reject an almost entirely white transport/transition frame, at any size.
+
+    This is an observation-quality check, never evidence that input is allowed.
+    A legitimate white transition must also settle before page anchors can pass.
+    """
+    from PIL import Image
+    with Image.open(path) as source:
+        pixels = source.convert('RGB')
+        histogram = pixels.histogram()
+        count = pixels.width * pixels.height
+    # Each channel may have up to 3% non-white pixels. By the union bound at
+    # least 91% of pixels are near-white in all three channels.
+    return all(sum(histogram[c * 256 + 250:c * 256 + 256]) / count >= .97
+               for c in range(3))
+
+
 def normalize(text):
     return ''.join(unicodedata.normalize('NFKC', text).translate(str.maketrans({'級':'级'})).split())
 
@@ -135,6 +185,21 @@ def require_text(text, required):
         for region in required.get('text_regions', []):
             if not isinstance(text, Observation) or not text.ocr_data:
                 raise RuntimeError('Regional text requires fresh OCR geometry')
+            if region.get('prefer_frame_ocr'):
+                left, top, right, bottom = region['bounds']
+                data = text.ocr_data
+                matches = []
+                for line in data['lines']:
+                    x, y, w, h = line['bounds']
+                    cx, cy = (x + w / 2) * data['width'], (y + h / 2) * data['height']
+                    if (left <= cx <= right and top <= cy <= bottom
+                        and line.get('confidence', 0) >= region.get('min_confidence', .5)
+                        and re.fullmatch(region['pattern'], normalize(line['text']))):
+                        matches.append(line['text'])
+                if len(matches) == 1:
+                    text.visual_checks.append({'regional_text': matches[0],
+                        'bounds': region['bounds'], 'source': 'full-frame-preferred'})
+                    continue
             if region.get('crop_ocr'):
                 if not text.ocr_config:
                     raise RuntimeError('Cropped text requires local OCR configuration')
@@ -350,10 +415,35 @@ def validate_condition(condition, size):
             or not 0<=bounds[0]<bounds[2]<=size[0] or not 0<=bounds[1]<bounds[3]<=size[1]
             or not isinstance(region.get('pattern'),str) or len(region['pattern'])>200
             or not 0<=region.get('min_confidence',.5)<=1
-            or type(region.get('crop_ocr',False)) is not bool):
+            or type(region.get('crop_ocr',False)) is not bool
+            or type(region.get('prefer_frame_ocr',False)) is not bool
+            or (region.get('prefer_frame_ocr') and not region.get('crop_ocr'))):
             raise ValueError('Invalid regional text assertion')
         re.compile(region['pattern'])
 
+
+
+def text_target_points(data, target, size, origin, extent):
+    left, top, right, bottom = target['bounds']
+    matches = []
+    for line in data['lines']:
+        value, label = normalize(line['text']), normalize(target['text'])
+        if target.get('regex', False):
+            if not re.fullmatch(target['text'], value):
+                continue
+        elif not (value == label if target.get('exact', True) else label in value):
+            continue
+        if line.get('confidence', 0) < target.get('min_confidence', .8):
+            continue
+        x, y, w, h = line['bounds']
+        cx, cy = origin[0] + (x+w/2)*extent[0], origin[1] + (y+h/2)*extent[1]
+        if left <= cx <= right and top <= cy <= bottom:
+            offset = target.get('offset', [0, 0])
+            point = [round(cx)+offset[0], round(cy)+offset[1]]
+            if not all(0 <= v < size[i] for i, v in enumerate(point)):
+                raise RuntimeError('OCR target resolves outside the reference window')
+            matches.append(point)
+    return matches
 
 
 def resolve_point(step, observation, size):
@@ -397,6 +487,12 @@ def resolve_point(step, observation, size):
         raise RuntimeError('Text targets require fresh local OCR geometry')
     left,top,right,bottom=target['bounds'];matches=[]
     data=observation.ocr_data;origin=[0,0];extent=size
+    if target.get('prefer_frame_ocr'):
+        preferred = text_target_points(data, target, size, origin, extent)
+        if len(preferred) == 1:
+            observation.visual_checks.append({'text_target_source': 'full-frame-preferred',
+                'bounds': target['bounds'], 'resolved_point': preferred[0]})
+            return preferred[0]
     if target.get('crop_ocr'):
         if not observation.ocr_config:
             raise RuntimeError('Cropped targets require local OCR configuration')
@@ -414,19 +510,7 @@ def resolve_point(step, observation, size):
             observation.timer_regions[key]=data
         data=observation.timer_regions[key];origin=[left,top];extent=[right-left,bottom-top]
         observation.visual_checks.append({'target_crop_bounds':target['bounds'],'labels':[line['text'] for line in data['lines']]})
-    for line in data['lines']:
-        value=normalize(line['text']);label=normalize(target['text'])
-        if target.get('regex',False):
-            if not re.fullmatch(target['text'],value):continue
-        elif not (value==label if target.get('exact',True) else label in value):continue
-        if line.get('confidence',0)<target.get('min_confidence',.8):continue
-        x,y,w,h=line['bounds'];cx,cy=origin[0]+(x+w/2)*extent[0],origin[1]+(y+h/2)*extent[1]
-        if left<=cx<=right and top<=cy<=bottom:
-            offset=target.get('offset',[0,0])
-            point=[round(cx)+offset[0],round(cy)+offset[1]]
-            if not all(0 <= v < size[i] for i,v in enumerate(point)):
-                raise RuntimeError('OCR target resolves outside the reference window')
-            matches.append(point)
+    matches = text_target_points(data, target, size, origin, extent)
     if target.get('select')=='top-left' and matches:
         return min(matches,key=lambda point:(point[1],point[0]))
     if len(matches)!=1:raise RuntimeError('Expected exactly one confident text target; found '+str(len(matches)))
@@ -455,6 +539,9 @@ def workflow_steps(workflow, steps):
 
 
 def validate_workflow(workflow):
+    recovery_budget = workflow.get('task_contract', {}).get('recovery_timeout_seconds', 60)
+    if type(recovery_budget) is not int or not 1 <= recovery_budget <= 120:
+        raise ValueError('recovery_timeout_seconds must be an integer from1 to120')
     budget = workflow.get('execution_timeout_seconds', 120)
     if type(budget) is not int or not 1 <= budget <= 1800:
         raise ValueError('execution_timeout_seconds must be an integer from1 to1800')
@@ -510,11 +597,13 @@ def validate_workflow(workflow):
                 target=step['text_target']
                 if not isinstance(target,dict):raise ValueError('text_target must be an object')
                 bounds=target.get('bounds',[])
-                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr'}
+                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr','prefer_frame_ocr'}
                     or not isinstance(target.get('text'),str) or not normalize(target['text'])
                     or type(target.get('exact',True)) is not bool
                     or type(target.get('regex',False)) is not bool
                     or type(target.get('crop_ocr',False)) is not bool
+                    or type(target.get('prefer_frame_ocr',False)) is not bool
+                    or target.get('prefer_frame_ocr') and not target.get('crop_ocr')
                     or target.get('select','unique') not in ('unique','top-left')
                     or len(target.get('text',''))>200
                     or not isinstance(target.get('offset',[0,0]),list)
@@ -643,11 +732,40 @@ class CuaMcp:
     def js(self, code):
         return self.request('tools/call', {'name':'js','arguments':{'code':code,'title':'CrossMacro authorized window macro'}})
 
+    def original_screenshot_bytes(self):
+        result = self.js('var cmOriginalObservation=await target.getAXStateAndScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalObservation.screenshot).toString("base64")}));')
+        for block in result.get('content', []):
+            if block.get('type') != 'text':
+                continue
+            try:
+                value = json.loads(block['text'])
+            except (ValueError, KeyError):
+                continue
+            if isinstance(value, dict) and isinstance(value.get('originalScreenshotBase64'), str):
+                return base64.b64decode(value['originalScreenshotBase64'], validate=True)
+        raise FatalExecutionError('Original screenshot unavailable after invalid image response')
+
     def observe(self, folder, label, expected_size):
         import viewport_calibration as viewport
         calibrated = viewport.calibration(self.config, expected_size)
         native_expected = calibrated["native_size"] if calibrated else expected_size
-        result = self.js('await target.getAXStateAndScreenshot();')
+        try:
+            result = self.js('await target.getAXStateAndScreenshot();')
+        except RuntimeError as exc:
+            # The host can remove its own transient screenshot before delivery.
+            # Only this precise observation error gets one fresh atomic read;
+            # permission, missing-window and unrelated file errors still stop.
+            message = str(exc)
+            if not all(marker in message for marker in (
+                    'ENOENT: no such file or directory',
+                    '/com.openai.sky.CUAService/', 'Screenshot ')):
+                raise
+            data = self.original_screenshot_bytes()
+            (folder / (label + '-missing-screenshot.json')).write_text(json.dumps({
+                'error': message, 'input_sent': False,
+                'method': 'one-fresh-atomic-read'}, indent=2))
+            result = {'content': [{'type': 'image', 'mimeType': 'image/jpeg',
+                                   'data': base64.b64encode(data).decode()}]}
         images = [c for c in result.get('content',[]) if c.get('type') == 'image']
         if len(images) != 1:
             raise RuntimeError('Expected one target-window screenshot')
@@ -663,38 +781,66 @@ class CuaMcp:
         from PIL import Image
         with Image.open(path) as captured:
             captured_size = list(captured.size)
-        if captured_size != native_expected:
+        if captured_size != native_expected or blank_observation_frame(path):
             unusable = path.with_name(path.stem + '-unusable-frame' + path.suffix)
             path.rename(unusable)
-            retry = self.js('var cmOriginalPixels=await target.getScreenshot({emit:false}); nodeRepl.write(JSON.stringify({originalScreenshotBase64:Buffer.from(cmOriginalPixels).toString("base64")}));')
-            original = None
-            for block in retry.get('content', []):
-                if block.get('type') != 'text':
-                    continue
-                try:
-                    value = json.loads(block['text'])
-                except (ValueError, KeyError):
-                    continue
-                if isinstance(value, dict) and isinstance(value.get('originalScreenshotBase64'), str):
-                    original = value['originalScreenshotBase64']
-                    break
-            if original is None:
-                raise FatalExecutionError('Original screenshot unavailable after invalid image response')
-            path.write_bytes(base64.b64decode(original, validate=True))
+            path.write_bytes(self.original_screenshot_bytes())
             with Image.open(path) as captured:
                 captured_size = list(captured.size)
-        if captured_size != native_expected:
-            raise FatalExecutionError('Window size changed or screenshot unavailable: %s; expected %s. No input sent.' % (captured_size, native_expected))
+        pending_viewport = None
+        invalid_sizes = []
+        invalid_reasons = []
+        for attempt in range(3):
+            blank_frame = blank_observation_frame(path)
+            if captured_size == native_expected and not blank_frame:
+                break
+            import viewport_preflight
+            pending_viewport = None if blank_frame else viewport_preflight.candidate(
+                self.config, expected_size, captured_size,
+                locked=getattr(self, '_viewport_locked', False))
+            if pending_viewport is not None and not blank_frame:
+                calibrated = pending_viewport[0]
+                break
+            invalid_sizes.append(captured_size)
+            invalid_reasons.append('blank-frame' if blank_frame else 'size-mismatch')
+            path.with_name(path.stem+'-invalid-original-'+str(attempt)+path.suffix).write_bytes(path.read_bytes())
+            if attempt == 2:
+                raise FatalExecutionError('Invalid screenshot frame (%s): %s; expected %s. No input sent.' % (invalid_reasons[-1], captured_size, native_expected))
+            # Read-only bounded recovery. Permission errors propagate immediately;
+            # no input, coordinate changes, or alternative backend is attempted.
+            path.write_bytes(self.original_screenshot_bytes())
+            with Image.open(path) as captured:
+                captured_size = list(captured.size)
+        if invalid_sizes:
+            (folder/(label+'-frame-recovery.json')).write_text(json.dumps({
+                'invalid_sizes': invalid_sizes, 'accepted_size': captured_size,
+                'invalid_reasons': invalid_reasons,
+                'extra_original_reads': len(invalid_sizes), 'input_sent': False,
+                'method': 'bounded-same-backend-original-read'}, indent=2))
         if calibrated:
             viewport.normalize_frame(path, calibrated)
-        raw = subprocess.run([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
-            capture_output=True,text=True,check=True,timeout=15)
+        raw = read_frame_ocr([self.config['ocr_binary'],str(path),self.config.get('language','en-US')],
+            self.deadline, folder/(label+'-ocr-recovery.json'))
         ocr = json.loads(raw.stdout)
         (folder/(label+'-ocr.json')).write_text(json.dumps(ocr,ensure_ascii=False,indent=2))
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise FatalExecutionError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        return Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
+        observation = Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
+        if pending_viewport:
+            try:
+                require_text(observation, pending_viewport[1])
+            except (RuntimeError, ValueError) as exc:
+                raise FatalExecutionError('Validated viewport entry anchor failed; no input sent: ' + str(exc)) from exc
+            event = {'previous': self.config.get('viewport_calibration'),
+                     'selected': calibrated, 'observed_size': captured_size,
+                     'evidence': str(path), 'input_sent': False,
+                     'method': 'startup-exact-validated-profile', 'window_resized': False}
+            (folder/(label+'-viewport-preflight.json')).write_text(json.dumps(event, ensure_ascii=False, indent=2))
+            self.config['viewport_calibration'] = calibrated
+        # Freeze for this backend's lifetime; a later resize still stops input.
+        self._viewport_locked = True
+        return observation
 
     def close(self):
         if self.proc.poll() is None:
@@ -711,7 +857,7 @@ class CuaMcp:
         if not self.error_thread.is_alive(): self.proc.stderr.close()
 
 
-def execute(config, workflow, step_name, backend=None):
+def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
     validate_workflow(workflow)
     steps = workflow['steps'] if step_name == 'all' else [s for s in workflow['steps'] if s['name'] == step_name]
     if not steps:
@@ -737,10 +883,11 @@ def execute(config, workflow, step_name, backend=None):
                 client = CuaMcp(config)
                 client.start()
             client.deadline = time.monotonic() + workflow.get('execution_timeout_seconds', min(120, config.get('timeout_seconds',45)))
+            if absolute_deadline is not None:
+                client.deadline = min(client.deadline, absolute_deadline)
             inventory = {}
             for index, step in enumerate(workflow_steps(workflow, steps)):
-                if time.monotonic() >= client.deadline:
-                    raise FatalExecutionError('Workflow execution timeout')
+                require_workflow_time(client.deadline)
                 # A skipped branch has no business action or observation to do.
                 # The next eligible step always observes afresh before any input.
                 if any(entry['name'] == step.get('skip_if_step_skipped') and entry.get('skipped') for entry in report['steps']):
@@ -748,6 +895,7 @@ def execute(config, workflow, step_name, backend=None):
                         'reason':'Earlier branch skipped; no observation or input required','visual_checks':[]})
                     continue
                 before = client.observe(folder, '%02d-before'%index, workflow['reference_size'])
+                report['viewport_calibration'] = copy.deepcopy(config.get('viewport_calibration'))
                 if step.get('finish_if'):
                     try:
                         require_text(before,step['finish_if'])
@@ -783,7 +931,7 @@ def execute(config, workflow, step_name, backend=None):
                         interval = step.get('observe_interval_seconds', 0)
                         if interval:
                             if time.monotonic() + interval >= client.deadline:
-                                raise FatalExecutionError('Workflow timeout before next observation retry')
+                                raise WorkflowBudgetExceeded('Workflow budget exhausted before next observation retry')
                             time.sleep(interval)
                         before = client.observe(folder, '%02d-before-retry-%02d' % (index, attempt + 1), workflow['reference_size'])
                 if skipped:
@@ -800,6 +948,7 @@ def execute(config, workflow, step_name, backend=None):
                         require_text(before, identity)
                     except RuntimeError as exc:
                         raise FatalExecutionError('Identity mismatch: ' + str(exc)) from exc
+                require_workflow_time(client.deadline)
                 entry = {'name':step['name'],'before_verified':True,
                          'verified_before_conditions':step['before'],
                          'identity_verified':bool(step.get('verify_identity')),
@@ -838,8 +987,9 @@ def execute(config, workflow, step_name, backend=None):
                         'increase':value-inventory[item['name']], 'read_attempts':read_attempt+1}
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
-                    client.js('for(let i=0;i<%d;i++){ await target.pressKey(%s, {durationMs:%d}); await target.getAXState({emit:false}); }' %
-                              (step.get('key_count',1),json.dumps(step['key']),step.get('duration_ms',600)))
+                    import backend_input
+                    require_workflow_time(client.deadline)
+                    backend_input.key(client, step['key'], step.get('key_count',1), step.get('duration_ms',600))
                     for attempt in range(step.get('observe_attempts',1)):
                         after=client.observe(folder,'%02d-after-%02d'%(index,attempt),workflow['reference_size'])
                         try:require_text(after,step['after']);break
@@ -847,6 +997,7 @@ def execute(config, workflow, step_name, backend=None):
                             if attempt+1==step.get('observe_attempts',1):raise
                     entry.update(after_verified=True,after_observations=attempt+1)
                 if step['action'] == 'click':
+                    import backend_input
                     point=resolve_point(step,before,workflow['reference_size'])
                     entry['resolved_point']=point
                     import viewport_calibration as viewport
@@ -869,7 +1020,8 @@ def execute(config, workflow, step_name, backend=None):
                         entry['daily_reservation_key'] = daily_reservation[1]
                     entry['click_unix'] = time.time()
                     try:
-                        client.js('await target.click(%s); await target.getAXState();' % json.dumps(point))
+                        require_workflow_time(client.deadline)
+                        backend_input.click(client, point)
                     finally:
                         if capture:
                             try: capture.proc.wait(timeout=audio_spec.get('window_seconds',2)+3)
@@ -910,7 +1062,7 @@ def execute(config, workflow, step_name, backend=None):
                 print(json.dumps({'status':'step_passed','step':step['name']},ensure_ascii=False),flush=True)
             report['status'] = 'passed'
         except (Exception, KeyboardInterrupt) as exc:
-            report.update(status='failed',error=str(exc))
+            report.update(status='failed',error=str(exc),error_type=type(exc).__name__)
             raise
         finally:
             if client is not None and backend is None:

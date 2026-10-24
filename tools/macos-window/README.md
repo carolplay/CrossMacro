@@ -29,6 +29,61 @@ applications/capabilities are declined. No thread identity or grant is synthesiz
 `guard_command` returns an `active` executor field; a non-null value blocks startup.
 Coordinate the app separately: advisory locks alone do not reserve it from others.
 
+### Previously validated window sizes
+
+Executor 0.4.1 optionally accepts `validated_viewport_profiles` in the private
+configuration. Each entry is a complete fixed `viewport_calibration` plus a
+nonempty `validated_anchors` evidence list and an `entry_condition` using the
+normal OCR/image condition format. At the first successful observation only,
+an exact native-size match may be selected after the entry condition passes on
+the normalized frame. This supports returning to a previously validated size
+without manually resizing the app. It does not resize the OS window, infer a
+new scale, ignore identity checks, or grant permissions.
+
+The selected profile is frozen for that backend's lifetime. Unknown dimensions,
+ambiguous profiles, wrong entry pages, and later dimension changes still stop
+input. The original image and `*-viewport-preflight.json` record the selection.
+Leave the option absent to retain strict single-size behavior. A new size needs
+an explicit calibration and live anchor verification before registration.
+
+Executor 0.4.2 additionally tolerates transient invalid screenshot bytes with
+at most two extra original-image reads from the same documented API. No input
+is sent while the image is invalid. Only the frozen expected size (or an exact
+validated startup profile with its entry condition) can resume execution.
+Persistent mismatches still fail; permission/transport errors propagate without
+retry or backend failover. Invalid originals and a successful recovery event
+are retained separately. This does not fix `noWindowsAvailable` on input.
+
+Executor 0.4.3 applies the same bounded read-only recovery to almost entirely
+white frames, even when their dimensions match. Each RGB channel must have
+at least 97% near-white pixels to trigger the quality check. A genuine white
+transition also needs to settle before execution can continue. These frames
+are never treated as valid page evidence or scaled into a usable observation;
+persistent white frames stop before OCR or input. Live replay remains separate
+from the offline tests.
+
+Executor 0.4.4 obtains recovery bytes from the documented atomic
+`getAXStateAndScreenshot({emit:false})` result. This refreshes state and pixels
+together and avoids relying on an emitted image content block. Four read-only
+captures returned the calibrated size during diagnosis; continuous replay still
+requires separate evidence. Retry bounds and permission-error behavior remain
+the same. No CUA identity or approval metadata is supplied.
+
+Executor 0.4.5 permits one fresh atomic observation when the host explicitly
+reports `ENOENT` for its own `com.openai.sky.CUAService/...Screenshot ...`
+temporary image. The original failure is retained. Missing unrelated files,
+`noWindowsAvailable`, permission errors, and a failed recovery still propagate;
+this never retries an input or changes an approval.
+
+Executor 0.4.6 adds opt-in `prefer_frame_ocr: true` alongside `crop_ocr: true`
+for regional text predicates. It first accepts exactly one fresh full-frame
+OCR line whose center is inside the declared region, confidence meets the
+existing threshold, and complete normalized text matches the existing pattern.
+Otherwise it uses the existing same-image crop and cache. It never substitutes
+text from another region or an older frame. Existing predicates keep their
+previous behavior unless they opt in; this avoids re-OCRing an already correct
+label when cropping itself makes recognition worse.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to

@@ -303,3 +303,6 @@ TestResults/
 # Local Python CI helper bytecode
 __pycache__/
 *.pyc
+
+# Local native Studio builds and compiler cache
+local-apps/
