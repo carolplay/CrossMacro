@@ -64,3 +64,11 @@ Python and Pillow are still external runtime dependencies in this first develope
 - Real acceptance: test target capture/click/keys, pointer before/after and background behavior, restart/rebuild permission identity, shared-lock collision and stop, then one WOS identity roundtrip and a targeted existing action. Offline tests do not satisfy these real-device checks.
 
 Sources: [ScreenCaptureKit screenshot manager](https://developer.apple.com/documentation/screencapturekit/scscreenshotmanager), [process-directed CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent/posttopid(_:)), [Accessibility trust](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions).
+
+## Offline contracts and current client changes
+
+Client diagnostics/probe revision 0.1.2 reports an absent or inaccessible native App as an explicit non-ready diagnostic and saves failed probe evidence in a new output directory without masking the original failure. The installed App remains 0.1.0 until an explicit rebuild; Python client changes do not grant native permissions.
+
+`capability_contracts.py` resolves a game-owned versioned JSON registry of `pages` and `exits` before connecting to any device. A reference is exactly `{"$page":"name"}` or `{"$exit":"name"}`; field overrides, unknown references, cycles and excessive expansion fail offline. Compiled workflows retain both the authored content hash and registry identity/hash. Use `native_visit.py --contract-registry /path/to/game/ui-contracts.json` explicitly; existing inline workflows and V2 production are unchanged. The device backend contains no WOS page names. Registry availability does not certify the corresponding UI branch.
+
+Shared engine 0.4.8 distinguishes its local workflow budget from device/transport failure. A local budget exhaustion remains a deviation; a fresh, at most 60-second declared-page recovery may restore the anchor before the following task. Each exit shares the same absolute recovery deadline, and an exhausted recovery is not restarted. Unknown pages stop the batch. Lock, identity, size, permission and transport timeout failures remain fatal with no recovery input. These limits are not native TCC permissions or a way around a platform refusal.

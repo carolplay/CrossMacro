@@ -16,6 +16,7 @@ def main():
     p.add_argument('--log-root',required=True,type=Path)
     p.add_argument('--manifest',required=True,type=Path)
     p.add_argument('--profile',required=True,choices=['main','mature-test','under30-test'])
+    p.add_argument('--contract-registry',type=Path,help='Optional game-owned page/exit registry, frozen before connecting')
     p.add_argument('--tasks',nargs='+',help='Explicit targeted subset; never silently expands')
     p.add_argument('--execute',action='store_true')
     a=p.parse_args();engine=Path(__file__).resolve().parents[1]/'macos-window'
@@ -27,6 +28,13 @@ def main():
         available={name for name,_ in selected}
         if set(a.tasks)-available: p.error('Task outside selected profile')
         selected=[x for x in selected if x[0] in a.tasks];identity['run_scope']='targeted-development';identity['targeted_tasks']=a.tasks
+    authored_versions=workflow_versions.suite_identity(selected)
+    if a.contract_registry:
+        from capability_contracts import ContractRegistry
+        registry=ContractRegistry.load(a.contract_registry)
+        selected=[(name,registry.workflow(flow)) for name,flow in selected]
+        identity['contract_registry']=registry.identity()
+        identity['authored_versions']=authored_versions
     for _,flow in selected:window_macro.validate_workflow(flow)
     frozen=workflow_versions.suite_identity(selected)
     if not a.execute:
