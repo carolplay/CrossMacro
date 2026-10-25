@@ -2,7 +2,7 @@
 set -eu
 TASK_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TASK_REPO=$(CDPATH= cd -- "$TASK_SOURCE/../.." && pwd)
-TASK_APP="$TASK_REPO/local-apps/Macro Studio.app"
+TASK_APP="${MACRO_STUDIO_APP_PATH:-$TASK_REPO/local-apps/Macro Studio.app}"
 mkdir -p "$TASK_APP/Contents/MacOS" "$TASK_APP/Contents/Resources" "$TASK_APP/Contents/Tools"
 cp "$TASK_SOURCE/Info.plist" "$TASK_APP/Contents/Info.plist"
 mkdir -p "$TASK_REPO/local-apps/.module-cache"

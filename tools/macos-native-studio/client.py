@@ -36,13 +36,20 @@ def main():
  targets=[w for w in windows if w['bundle_id']=='io.crossmacro.macro-studio' and re.fullmatch(r'Macro Studio Test Target(?: — \d+)?',w['title'])]
  if len(targets)!=1:raise ValueError('Open one fresh built-in test target from Studio first')
  w=targets[0];baseline=int(w['title'].rsplit(' — ',1)[1]) if ' — ' in w['title'] else 0;b.config.update(native_window_id=w['id'],native_expected_size=[w['width'],w['height']],native_lock_file=status['lock_file'])
- report={'version':'0.1.0','client_version':'0.1.3','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
+ report={'version':status.get('version'),'client_version':'0.1.4','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
  if a.output:a.output.mkdir(parents=True,exist_ok=True)
  try:
-  b.start();before=b.request('screenshot');matches=[l for l in before['ocr']['lines'] if '点击计数' in l['text']]
+  b.start();before=b.request('screenshot')
+  if a.output:
+   (a.output/'before.png').write_bytes(base64.b64decode(before['png_base64']))
+   (a.output/'before-ocr.json').write_text(json.dumps(before['ocr'],ensure_ascii=False,indent=2)+'\n')
+  matches=[l for l in before['ocr']['lines'] if '点击计数' in l['text']]
   if len(matches)!=1:raise ValueError('Unique built-in button label not found')
   x,y,width,height=matches[0]['bounds'];point=[round((x+width/2)*before['ocr']['width']),round((y+height/2)*before['ocr']['height'])]
+  report['click_point']=point
   reply=b.click(point);after=b.request('screenshot');latest=b.request('windows')['windows'];actual=next((x for x in latest if x['id']==w['id']),{})
+  report.update(input=reply,window_after=actual,ocr_before=before['ocr'],ocr_after=after['ocr'])
+  if a.output:(a.output/'after.png').write_bytes(base64.b64decode(after['png_base64']))
   if actual.get('title')!='Macro Studio Test Target — '+str(baseline+1):raise ValueError('Input sent but test counter did not increase exactly once; keep window-directed input unverified')
   report.update(status='passed',counter_after=baseline+1,input=reply,window_after=actual,ocr_before=before['ocr'],ocr_after=after['ocr'],verified='one native button click; no claim about WOS/background/lock or key support')
   if a.output:

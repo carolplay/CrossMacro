@@ -5,7 +5,7 @@ import Vision
 import ImageIO
 import Darwin
 
-let appVersion = "0.1.0"
+let appVersion = "0.1.1"
 let ownBundle = "io.crossmacro.macro-studio"
 func screenLocked() -> Bool {
     // WindowServer diagnostic; not a supported unlock mechanism or lock-screen capability.
@@ -190,7 +190,18 @@ final class Studio: NSObject, NSApplicationDelegate {
         guard let pid = fresh.owningApplication?.processID else { throw Failure("target_gone") }
         if op == "click" {
             let p = try checkedPoint(q["point"], window: fresh)
-            guard let down=CGEvent(mouseEventSource:nil,mouseType:.leftMouseDown,mouseCursorPosition:p,mouseButton:.left), let up=CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:p,mouseButton:.left) else { throw Failure("event_creation_failed") }
+            // Process-directed events bypass WindowServer hit testing. Preserve an
+            // explicit AppKit window number as well as the global CG location.
+            let local = CGPoint(x:p.x-fresh.frame.minX,y:fresh.frame.height-(p.y-fresh.frame.minY))
+            let number = seq + 1
+            func mouse(_ type: NSEvent.EventType, _ pressure: Float) -> CGEvent? {
+                guard let event = NSEvent.mouseEvent(with:type,location:local,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:Int(fresh.windowID),context:nil,eventNumber:number,clickCount:1,pressure:pressure)?.cgEvent else { return nil }
+                event.location = p
+                event.setIntegerValueField(.mouseEventWindowUnderMousePointer,value:Int64(fresh.windowID))
+                event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent,value:Int64(fresh.windowID))
+                return event
+            }
+            guard let down=mouse(.leftMouseDown,1), let up=mouse(.leftMouseUp,0) else { throw Failure("event_creation_failed") }
             down.postToPid(pid); up.postToPid(pid)
         } else if op == "key" {
             guard let key=q["key"] as? String, let ms=q["duration_ms"] as? Int, (0...1000).contains(ms) else { throw Failure("invalid_key") }

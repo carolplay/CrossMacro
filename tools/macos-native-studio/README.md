@@ -1,6 +1,6 @@
 # Macro Studio: V3 native device prototype
 
-Version 0.1.0. This is S0/S1 development, not a production daily scheduler or a completed visual macro editor.
+Version 0.1.1. This is S0/S1 development, not a production daily scheduler or a completed visual macro editor.
 
 The AppKit app owns ScreenCaptureKit capture, Vision OCR, experimental `CGEvent.postToPid` input, a local Unix socket, and the real device lock. The Python action engine uses a typed `NativeBackend`; it never starts CUA or evaluates JavaScript. Existing action JSON, identity checks, image conditions, recovery and reports remain reusable. CUA remains a separate V2 backend; there is no failover after a denial.
 
@@ -9,6 +9,14 @@ The AppKit app owns ScreenCaptureKit capture, Vision OCR, experimental `CGEvent.
 Run `./tools/macos-native-studio/build.sh` from this repository. The stable local destination is `local-apps/Macro Studio.app`, bundle ID `io.crossmacro.macro-studio`. Build products and module caches are ignored by Git. Only public Apple frameworks are linked. No root daemon, network listener, unlock service or OS security change is installed.
 
 Default signing is ad hoc. It establishes an app bundle but does **not** prove stable TCC authorization across rebuilds. Set `MACRO_STUDIO_SIGN_IDENTITY` to a suitable existing signing identity for later signed builds; Developer ID/notarization are not included. Keep the app at a stable path. A code signing identity and a successful permission request are different from lock-screen access.
+
+`MACRO_STUDIO_APP_PATH` can build a candidate in a separate directory without replacing an authorized installation. A candidate build is not a permission or live-input test. Preserve the previous bundle before installing a candidate at the stable path.
+
+### First native acceptance, 2026-10-24
+
+The user-granted 0.1.0 installation reported Screen Recording and Accessibility allowed. Native capture/OCR worked, but the built-in counter did not increase after one process-directed click. That failed probe is not WOS acceptance. The 0.1.1 candidate constructs AppKit mouse events with the explicit target window number and sets both public CG window-routing fields before `postToPid`; no global input fallback was added. This change compiles but still requires a live counter test.
+
+Installing the ad-hoc-signed 0.1.1 candidate at the same path actually lost both TCC grants. Permission persistence across rebuilds therefore failed in this environment; a fixed bundle identifier alone is insufficient. The original granted bundle was preserved locally. Stable signing remains a release prerequisite, and 0.1.1 awaits renewed user authorization before any live test. Client 0.1.4 preserves before/after frames, OCR, click coordinates and the observed title even when the counter test fails, and reports the running App version rather than a hard-coded version.
 
 Some mixed Command Line Tools installations contain two SwiftBridging module maps. `MACRO_STUDIO_CLT_OVERLAY=1` uses a project-local compiler VFS overlay to hide the duplicate legacy map for the build only. It does not modify `/Library/Developer`.
 

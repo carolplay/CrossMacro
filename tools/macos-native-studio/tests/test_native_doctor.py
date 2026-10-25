@@ -59,7 +59,7 @@ class DoctorTests(unittest.TestCase):
         b = Mock(); b.config = {}
         window = {'id': 1, 'bundle_id': 'io.crossmacro.macro-studio',
                   'title': 'Macro Studio Test Target — 7', 'width': 600, 'height': 420}
-        image = {'ocr': {'width': 600, 'height': 420, 'lines': [
+        image = {'png_base64': 'dGVzdC1mcmFtZQ==', 'ocr': {'width': 600, 'height': 420, 'lines': [
             {'text': '点击计数 +1', 'bounds': [0.2, 0.3, 0.2, 0.1]}]}}
         b.request.side_effect = [ready(), {'windows': [window]}, image, image,
             {'windows': [{**window, 'title': 'Macro Studio Test Target — '+str(after_count)}]}]
@@ -103,6 +103,11 @@ class DiagnosticFailureTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'did not increase'):
                     client.main()
             report = json.loads((output/'result.json').read_text())
+            self.assertEqual(b'test-frame', (output/'before.png').read_bytes())
+            self.assertEqual(b'test-frame', (output/'after.png').read_bytes())
+            self.assertEqual([180, 147], report['click_point'])
+            self.assertTrue(report['input']['sent'])
+            self.assertEqual('Macro Studio Test Target — 7', report['window_after']['title'])
         self.assertEqual('failed', report['status'])
         self.assertEqual('ValueError', report['error_type'])
         b.close.assert_called_once()
