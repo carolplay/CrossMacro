@@ -687,6 +687,10 @@ class CuaMcp:
         self.proc.stdin.flush()
 
     def request(self, method, params):
+        # A request that has not been sent can still fail as a local budget
+        # deviation. Once sent, timeout remains fatal: input effect is unknown.
+        if self.deadline <= time.monotonic():
+            raise WorkflowBudgetExceeded("Workflow budget exhausted before MCP request")
         self.next_id += 1
         request_id = self.next_id
         self.send({'jsonrpc':'2.0','id':request_id,'method':method,'params':params})
