@@ -5,7 +5,7 @@ import Vision
 import ImageIO
 import Darwin
 
-let appVersion = "0.1.1"
+let appVersion = "0.1.4"
 let ownBundle = "io.crossmacro.macro-studio"
 func screenLocked() -> Bool {
     // WindowServer diagnostic; not a supported unlock mechanism or lock-screen capability.
@@ -39,6 +39,7 @@ final class Studio: NSObject, NSApplicationDelegate {
     var seq = 0
     var timer: Timer?
     var socketFD: Int32 = -1
+    var testEventMonitor: Any?
     var compatibilityLock: URL {
         let file = support.appendingPathComponent("config.json")
         if let data = try? Data(contentsOf: file), let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -74,10 +75,16 @@ final class Studio: NSObject, NSApplicationDelegate {
                 if s.sessionToken != nil && Date().timeIntervalSince(s.lastActivity) > 120 { s.end("client_timeout") }
             }
         }
+        testEventMonitor = NSEvent.addLocalMonitorForEvents(matching:[.leftMouseDown,.leftMouseUp,.keyDown,.keyUp]) { [weak self] event in
+            if let s=self, event.window === s.testWindow {
+                s.log("test_event_received",["type":event.type.rawValue,"point":[event.locationInWindow.x,event.locationInWindow.y],"window_id":event.windowNumber,"app_active":NSApp.isActive,"window_key":event.window?.isKeyWindow ?? false])
+            }
+            return event
+        }
         refresh(); startServer(); log("app_started", ["version": appVersion, "socket": support.appendingPathComponent("control.sock").path])
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-    func applicationWillTerminate(_ notification: Notification) { end("app_exit"); if socketFD >= 0 { Darwin.close(socketFD); unlink(support.appendingPathComponent("control.sock").path) } }
+    func applicationWillTerminate(_ notification: Notification) { end("app_exit"); if let m=testEventMonitor { NSEvent.removeMonitor(m) }; if socketFD >= 0 { Darwin.close(socketFD); unlink(support.appendingPathComponent("control.sock").path) } }
     @objc func refresh() {
         label.stringValue = "屏幕录制：\(CGPreflightScreenCaptureAccess() ? "已允许" : "未允许")   辅助功能：\(AXIsProcessTrusted() ? "已允许" : "未允许")\n输入：\(inputEnabled ? "本次允许" : "停止")   运行：\(runID ?? "无")\n权限主体：\(ownBundle) · \(Bundle.main.bundlePath)"
     }
@@ -118,7 +125,7 @@ final class Studio: NSObject, NSApplicationDelegate {
         return ["version": appVersion, "backend": "native-macos", "bundle_id": ownBundle, "app_path": Bundle.main.bundlePath,
                 "screen_recording": CGPreflightScreenCaptureAccess(), "accessibility": AXIsProcessTrusted(), "on_console": onConsole(),
                 "session_available": sessionAvailable, "screen_locked_diagnostic": screenLocked(), "lock_support": false, "input_enabled": inputEnabled, "run_id": runID ?? NSNull(),
-                "global_pointer_impact": "unverified", "window_directed_input": "experimental_postToPid", "cua_dependency": false,
+                "global_pointer_impact": "unverified", "window_directed_input": "experimental_typed_native_transport", "cua_dependency": false,"app_active":NSApp.isActive,"skylight_mouse_available":NativeMouseTransport.post != nil,"window_location_stamp_available":NativeMouseTransport.setWindowLocation != nil,
                 "socket": support.appendingPathComponent("control.sock").path, "lock_file": compatibilityLock.path]
     }
     func shareable() async throws -> SCShareableContent {
@@ -188,29 +195,80 @@ final class Studio: NSObject, NSApplicationDelegate {
             return ["png_base64":(data as Data).base64EncodedString(),"ocr":["width":image.width,"height":image.height,"lines":lines],"window_id":w.windowID]
         }
         guard let pid = fresh.owningApplication?.processID else { throw Failure("target_gone") }
+        var delivery = "postToPid"
         if op == "click" {
             let p = try checkedPoint(q["point"], window: fresh)
-            // Process-directed events bypass WindowServer hit testing. Preserve an
-            // explicit AppKit window number as well as the global CG location.
-            let local = CGPoint(x:p.x-fresh.frame.minX,y:fresh.frame.height-(p.y-fresh.frame.minY))
+            let raw = try point(q["point"])
+            let settings = ((try? Data(contentsOf:support.appendingPathComponent("config.json"))).flatMap { try? JSONSerialization.jsonObject(with:$0) as? [String:Any] }) ?? [:]
+            let profile = settings["mouse_event_profile"] as? String ?? "window"
+            guard ["window","window-subtype0","legacy-global","global-subtype3","skylight-screen","skylight-local","skylight-unstamped","skylight-local-command"].contains(profile) else { throw Failure("invalid_mouse_event_profile") }
+            let sky = profile.hasPrefix("skylight-")
+            delivery = sky ? "SLEventPostToPid" : "postToPid"
+            let holdMS = settings["mouse_hold_ms"] as? Int ?? 100
+            guard (25...250).contains(holdMS) else { throw Failure("invalid_mouse_hold_ms") }
+            let phaseNumbers = settings["mouse_touch_phase_numbers"] as? Bool ?? false
+            guard !sky || NativeMouseTransport.post != nil else { throw Failure("native_mouse_transport_unavailable") }
+            guard !sky || profile == "skylight-unstamped" || NativeMouseTransport.setWindowLocation != nil else { throw Failure("native_mouse_stamp_unavailable") }
+            let ownWindow = NSApp.windows.first(where:{$0.windowNumber == Int(fresh.windowID)})
+            // NSEvent knows frames only for this process's NSWindows. For an
+            // external window, encode top-left window coordinates in the CG
+            // payload; do not overwrite that payload with global coordinates.
+            let local = CGPoint(x:raw.x,y:(ownWindow != nil ? fresh.frame.height : (NSScreen.screens.first?.frame.height ?? 0))-raw.y)
             let number = seq + 1
             func mouse(_ type: NSEvent.EventType, _ pressure: Float) -> CGEvent? {
                 guard let event = NSEvent.mouseEvent(with:type,location:local,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:Int(fresh.windowID),context:nil,eventNumber:number,clickCount:1,pressure:pressure)?.cgEvent else { return nil }
-                event.location = p
+                if profile == "legacy-global" || profile == "global-subtype3" || sky { event.location = p }
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointer,value:Int64(fresh.windowID))
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent,value:Int64(fresh.windowID))
+                event.setIntegerValueField(.mouseEventButtonNumber,value:0)
+                event.setIntegerValueField(.mouseEventSubtype,value:profile == "window-subtype0" || profile == "legacy-global" ? 0 : 3)
+                event.setIntegerValueField(.eventTargetUnixProcessID,value:Int64(pid))
+                if phaseNumbers {
+                    event.setIntegerValueField(.mouseEventNumber,value:type == .leftMouseDown ? 1 : 2)
+                }
+                if sky && profile != "skylight-unstamped" {
+                    let stamp = profile == "skylight-screen" ? p : raw
+                    NativeMouseTransport.setWindowLocation?(event,stamp.x,stamp.y)
+                }
+                if profile == "skylight-local-command" { event.flags = .maskCommand }
                 return event
             }
             guard let down=mouse(.leftMouseDown,1), let up=mouse(.leftMouseUp,0) else { throw Failure("event_creation_failed") }
-            down.postToPid(pid); up.postToPid(pid)
+            let decoded=NSEvent(cgEvent:down)
+            log("mouse_constructed",["profile":profile,"hold_ms":holdMS,"touch_phase_numbers":phaseNumbers,"requested_point":[raw.x,raw.y],"global_target":[p.x,p.y],"cg_location":[down.location.x,down.location.y],"decoded_window_point":[decoded?.locationInWindow.x ?? -1,decoded?.locationInWindow.y ?? -1],"decoded_window_id":decoded?.windowNumber ?? -1,"target_window_id":fresh.windowID,"target_is_own_window":ownWindow != nil,"target_app_active":NSRunningApplication(processIdentifier:pid)?.isActive ?? false])
+            guard let release = up.data else { throw Failure("event_encoding_failed") }
+            let releaseData = release as Data
+            let pointerBefore=CGEvent(source:nil)?.location
+            let targetActiveBefore=NSRunningApplication(processIdentifier:pid)?.isActive ?? false
+            down.timestamp = DispatchTime.now().uptimeNanoseconds
+            if sky {
+                guard let move=CGEvent(mouseEventSource:nil,mouseType:.mouseMoved,mouseCursorPosition:p,mouseButton:.left) else { throw Failure("event_creation_failed") }
+                move.setIntegerValueField(.mouseEventWindowUnderMousePointer,value:Int64(fresh.windowID))
+                move.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent,value:Int64(fresh.windowID))
+                move.setIntegerValueField(.eventTargetUnixProcessID,value:Int64(pid))
+                if profile != "skylight-unstamped" { let stamp=profile == "skylight-screen" ? p : raw;NativeMouseTransport.setWindowLocation?(move,stamp.x,stamp.y) }
+                NativeMouseTransport.post?(pid,move)
+                NativeMouseTransport.post?(pid,down)
+            } else { down.postToPid(pid) }
+            // Keep release off the main actor: AppKit may enter a nested mouse
+            // tracking loop while handling down. It must still receive up.
+            DispatchQueue.global(qos:.userInitiated).asyncAfter(deadline:.now()+Double(holdMS)/1000) {
+                if let release=CGEvent(withDataAllocator:nil,data:releaseData as CFData) {
+                    release.timestamp = DispatchTime.now().uptimeNanoseconds
+                    if sky { NativeMouseTransport.post?(pid,release) } else { release.postToPid(pid) }
+                }
+            }
+            try? await Task.sleep(nanoseconds:UInt64(holdMS+50)*1_000_000)
+            let pointerAfter=CGEvent(source:nil)?.location
+            log("mouse_delivery_observed",["profile":profile,"pointer_before":[pointerBefore?.x ?? -1,pointerBefore?.y ?? -1],"pointer_after":[pointerAfter?.x ?? -1,pointerAfter?.y ?? -1],"target_active_before":targetActiveBefore,"target_active_after":NSRunningApplication(processIdentifier:pid)?.isActive ?? false])
         } else if op == "key" {
             guard let key=q["key"] as? String, let ms=q["duration_ms"] as? Int, (0...1000).contains(ms) else { throw Failure("invalid_key") }
             let code=try keyCode(key); guard let down=CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:true),let up=CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:false) else {throw Failure("event_creation_failed")}
             down.postToPid(pid)
             // Release key even if Stop/session change occurs during the bounded hold.
-            try? await Task.sleep(nanoseconds:UInt64(ms)*1_000_000); up.postToPid(pid)
+            try? await Task.sleep(nanoseconds:UInt64(ms)*1_000_000); up.timestamp=DispatchTime.now().uptimeNanoseconds; up.postToPid(pid)
         } else { throw Failure("unsupported_operation") }
-        log("input_sent",["op":op,"window_id":w.windowID,"delivery":"postToPid","application_effect":"unverified"])
+        log("input_sent",["op":op,"window_id":w.windowID,"delivery":delivery,"application_effect":"unverified"])
         return ["sent":true,"effect_verified":false]
     }
     func startServer() {

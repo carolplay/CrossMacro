@@ -1,8 +1,18 @@
 # Macro Studio: V3 native device prototype
 
-Version 0.1.1. This is S0/S1 development, not a production daily scheduler or a completed visual macro editor.
+Version 0.1.4 candidate. This is development, not a production daily scheduler or a completed visual macro editor.
 
-The AppKit app owns ScreenCaptureKit capture, Vision OCR, experimental `CGEvent.postToPid` input, a local Unix socket, and the real device lock. The Python action engine uses a typed `NativeBackend`; it never starts CUA or evaluates JavaScript. Existing action JSON, identity checks, image conditions, recovery and reports remain reusable. CUA remains a separate V2 backend; there is no failover after a denial.
+The AppKit app owns ScreenCaptureKit capture, Vision OCR, experimental process-directed input, a local Unix socket, and the real device lock. The Python action engine uses a typed `NativeBackend`; it never starts CUA or evaluates JavaScript. Existing action JSON, identity checks, image conditions, recovery and reports remain reusable. CUA remains a separate V2 backend; there is no failover after a denial.
+
+### Latest acceptance snapshot
+
+- 0.1.2: real built-in counter increments passed with both subtype 3 and subtype 0, using delayed release. The target App was inactive. This rules out subtype 3 being necessary for that test; it does not by itself isolate every other change.
+- 0.1.3: optional `SLEventPostToPid` and `CGEventSetWindowLocation` compatibility bindings were added. These are **undocumented system APIs**, not OpenAI's CUA service. The public-only claim of the initial prototype does not apply to this opt-in transport. No authentication envelope, event-source identity rewrite, focus-record injection, global HID tap or security-setting change is included. Missing symbols stop the requested transport; there is no fallback or duplicate delivery through two transports. See `THIRD_PARTY_NOTICES.md`.
+- The compatibility route passed the built-in counter with `skylight-local`. `skylight-screen` actually reached the test window at the wrong coordinates and failed, which was captured by the local receiver monitor. Pointer positions matched before/after the successful sample; the target remained inactive. This is one controlled sample, not general pointer-isolation certification.
+- WOS: several input encodings were attempted. A welcome-page transition was observed after a `skylight-screen` click, but later close/profile actions did not reliably change the UI. One official CUA reference click closed the promotional popup; that action is recorded separately and is **not native acceptance**. No complete native WOS action has passed yet.
+- 0.1.4 refreshes the release timestamp at delivery time, supports a bounded `mouse_hold_ms` (25–250, default 100), and an explicit `mouse_touch_phase_numbers` experiment. The old event was created before the delay, so its embedded timestamp did not represent the observed hold. This candidate compiled, but the timing hypothesis awaits real validation and renewed TCC authorization.
+
+The diagnostic profiles additionally include `global-subtype3`, `skylight-screen`, `skylight-local`, `skylight-unstamped` and `skylight-local-command`; these are selected explicitly from the private App config. They never change automatically after an error. Runtime experiments and source changes must retain their actual version, settings and result. The installed candidate remains ad-hoc signed; reauthorization cannot be inferred from the settings toggle or an older bundle's grant.
 
 ## Build and identity
 
@@ -17,6 +27,12 @@ Default signing is ad hoc. It establishes an app bundle but does **not** prove s
 The user-granted 0.1.0 installation reported Screen Recording and Accessibility allowed. Native capture/OCR worked, but the built-in counter did not increase after one process-directed click. That failed probe is not WOS acceptance. The 0.1.1 candidate constructs AppKit mouse events with the explicit target window number and sets both public CG window-routing fields before `postToPid`; no global input fallback was added. This change compiles but still requires a live counter test.
 
 Installing the ad-hoc-signed 0.1.1 candidate at the same path actually lost both TCC grants. Permission persistence across rebuilds therefore failed in this environment; a fixed bundle identifier alone is insufficient. The original granted bundle was preserved locally. Stable signing remains a release prerequisite, and 0.1.1 awaits renewed user authorization before any live test. Client 0.1.4 preserves before/after frames, OCR, click coordinates and the observed title even when the counter test fails, and reports the running App version rather than a hard-coded version.
+
+After removing and re-adding stale TCC entries, 0.1.1 actually obtained both grants. Its native capture/OCR passed, but the counter remained unchanged. A separately recorded CUA reference click incremented the counter; that reference is not native acceptance.
+
+The 0.1.2 diagnostic candidate adds a local event monitor restricted to the built-in target, recording received event type, window-local coordinates and activation state without altering the event or incrementing the counter. Mouse release is delivered from a bounded background callback after 25ms, allowing AppKit's nested mouse-tracking loop to receive it. Own NSWindow coordinates and external process coordinates are encoded separately; an NSEvent/CGEvent roundtrip showed that overwriting the CG location changes external window-coordinate payloads, while an owned NSWindow can convert correctly using its known frame. This distinction remains a hypothesis to validate against actual input, not a proven explanation for the entire 0.1.1 failure.
+
+The private App config accepts `mouse_event_profile`: `window` (default), `window-subtype0`, or `legacy-global`. These are explicit development experiments; no failure automatically changes profile or switches to a global event tap. `window` sets the public mouse-subtype field to 3, an experimental delivery detail whose effect must be observed. Each click logs its chosen profile and decoded coordinates. All modes retain permissions, target/size checks and the actual shared lock. No private framework calls or private setters are used. The 0.1.2 candidate still requires TCC re-authorization and real counter/WOS acceptance.
 
 Some mixed Command Line Tools installations contain two SwiftBridging module maps. `MACRO_STUDIO_CLT_OVERLAY=1` uses a project-local compiler VFS overlay to hide the duplicate legacy map for the build only. It does not modify `/Library/Developer`.
 

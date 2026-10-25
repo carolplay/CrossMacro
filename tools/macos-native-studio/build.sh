@@ -18,7 +18,7 @@ PYOVERLAY
 else
     set --
 fi
-xcrun swiftc "$@" -target "$(uname -m)-apple-macos14.4" -module-cache-path "$TASK_REPO/local-apps/.module-cache-overlay" -swift-version 5 -O -framework AppKit -framework ScreenCaptureKit -framework Vision -framework ImageIO "$TASK_SOURCE/Sources/main.swift" -o "$TASK_APP/Contents/MacOS/MacroStudio"
+xcrun swiftc "$@" -target "$(uname -m)-apple-macos14.4" -module-cache-path "$TASK_REPO/local-apps/.module-cache-overlay" -swift-version 5 -O -framework AppKit -framework ScreenCaptureKit -framework Vision -framework ImageIO "$TASK_SOURCE"/Sources/*.swift -o "$TASK_APP/Contents/MacOS/MacroStudio"
 xcrun clang -fmodules-cache-path="$TASK_REPO/local-apps/.module-cache" -O2 -fobjc-arc -framework Foundation -framework Vision -framework ImageIO "$TASK_REPO/tools/macos-window/vision-ocr.m" -o "$TASK_APP/Contents/Tools/vision-ocr"
 codesign --force --sign "${MACRO_STUDIO_SIGN_IDENTITY:--}" --identifier io.crossmacro.macro-studio "$TASK_APP"
 "$TASK_APP/Contents/MacOS/MacroStudio" --self-check
