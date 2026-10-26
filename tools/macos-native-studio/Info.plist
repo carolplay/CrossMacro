@@ -6,8 +6,8 @@
 <key>CFBundleDisplayName</key><string>Macro Studio</string>
 <key>CFBundleExecutable</key><string>MacroStudio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.4</string>
-<key>CFBundleVersion</key><string>5</string>
+<key>CFBundleShortVersionString</key><string>0.1.8</string>
+<key>CFBundleVersion</key><string>9</string>
 <key>LSMinimumSystemVersion</key><string>14.4</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSScreenCaptureUsageDescription</key><string>Capture only the selected automation window for local image checks and OCR.</string>

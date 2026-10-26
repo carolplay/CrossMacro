@@ -80,6 +80,8 @@ def signing_identity(app_path):
                             capture_output=True, text=True, timeout=15)
     show = subprocess.run(['/usr/bin/codesign', '--display', '--verbose=4', str(app)],
                           capture_output=True, text=True, timeout=15)
+    requirement = subprocess.run(['/usr/bin/codesign', '--display', '-r', '-', str(app)],
+                                capture_output=True, text=True, timeout=15)
     fields = {}
     for line in (show.stdout+'\n'+show.stderr).splitlines():
         key, sep, value = line.partition('=')
@@ -88,5 +90,20 @@ def signing_identity(app_path):
     adhoc = fields.get('Signature') == 'adhoc' or 'adhoc' in fields.get('CodeDirectory', '')
     return {'bundle_version': info.get('CFBundleShortVersionString'),
             'bundle_id': info.get('CFBundleIdentifier'), 'signature_verified': verify.returncode == 0,
+            'verification_error': (verify.stdout+verify.stderr).strip() if verify.returncode else None,
+            'designated_requirement': next((line.strip() for line in (requirement.stdout+'\n'+requirement.stderr).splitlines() if line.strip().startswith('designated =>')), None),
             'signing': fields, 'adhoc': adhoc,
             'permission_persistence': 'unverified_across_rebuilds' if adhoc else 'requires_restart_and_update_acceptance'}
+
+
+def attach_signing_diagnostics(report, identity):
+    """An installed but untrusted/stale bundle cannot be reported ready."""
+    report['installed_identity'] = identity
+    if identity.get('signature_verified') is not True:
+        report['blockers'].append('installed_signature_not_verified')
+        report['next_steps'].append('先解决签名验证，不安装或启动输入；保留原错误，不更改验证规则')
+    if identity.get('bundle_version') != report.get('running_version'):
+        report['restart_required'] = True
+        report['blockers'].append('running_installed_version_mismatch')
+    report['ready_for_test_window'] = not report['blockers']
+    return report

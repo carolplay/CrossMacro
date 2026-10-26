@@ -18,12 +18,12 @@ class NativeOperationBlocked(PermissionError):
         self.code = str(code)
         if self.code.startswith('permission_denied:'):
             self.category = 'system_permission'
-        elif self.code in {'input_not_enabled_in_app', 'active_executor_or_disabled'}:
+        elif self.code in {'input_not_enabled_in_app', 'active_executor_or_disabled', 'development_authorization_expired'}:
             # App combines several checks; do not pretend this proves missing TCC.
             self.category = 'input_activation_or_session'
-        elif self.code in {'session_inactive', 'invalid_session'}:
+        elif self.code in {'session_inactive', 'invalid_session', 'lock_admission_cancelled'}:
             self.category = 'session'
-        elif self.code in {'active_executor', 'lock_file_unavailable'}:
+        elif self.code in {'active_executor', 'lock_file_unavailable', 'lock_admission_timeout'}:
             self.category = 'execution_lock'
         elif self.code in {'window_size_changed', 'window_size_changed_or_target_gone', 'target_gone', 'target_not_allowed'}:
             self.category = 'target_window'

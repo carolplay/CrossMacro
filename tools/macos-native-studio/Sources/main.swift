@@ -5,7 +5,7 @@ import Vision
 import ImageIO
 import Darwin
 
-let appVersion = "0.1.4"
+let appVersion = "0.1.8"
 let ownBundle = "io.crossmacro.macro-studio"
 func screenLocked() -> Bool {
     // WindowServer diagnostic; not a supported unlock mechanism or lock-screen capability.
@@ -29,11 +29,15 @@ final class Studio: NSObject, NSApplicationDelegate {
     var label: NSTextField!
     var logView: NSTextView!
     var testWindow: NSWindow?
-    var inputEnabled = false
+    var inputAuthorization = InputAuthorization()
+    var uptime: TimeInterval { ProcessInfo.processInfo.systemUptime }
+    var inputEnabled: Bool { inputAuthorization.allowed(now:uptime) }
     var sessionAvailable = true
     var selected: SCWindow?
     var sessionToken: String?
     var lockFD: Int32 = -1
+    var pendingAdmission: UUID?
+    var admissionGeneration = 0
     var lastActivity = Date()
     var runID: String?
     var seq = 0
@@ -47,6 +51,9 @@ final class Studio: NSObject, NSApplicationDelegate {
         return support.appendingPathComponent("device.lock")
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let menu = NSMenu(); let appItem = NSMenuItem(); menu.addItem(appItem)
+        let appMenu = NSMenu(); let quit = NSMenuItem(title:"Quit Macro Studio",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
+        quit.target = NSApp; appMenu.addItem(quit); appItem.submenu = appMenu; NSApp.mainMenu = menu
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         chmod(support.path, 0o700)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 500), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -60,7 +67,8 @@ final class Studio: NSObject, NSApplicationDelegate {
             let button = NSButton(title: name, target: self, action: action); buttons.addArrangedSubview(button)
         }
         stack.addArrangedSubview(buttons)
-        stack.addArrangedSubview(NSTextField(wrappingLabelWithString: "首版仅支持已解锁用户会话。需手动允许输入；停止、会话离开、屏幕休眠或空闲超时均撤销。后台定向输入是否被目标接受，须逐个验证。"))
+        stack.addArrangedSubview(NSButton(title:"允许开发2小时",target:self,action:#selector(enableDevelopment)))
+        stack.addArrangedSubview(NSTextField(wrappingLabelWithString: "仅支持已解锁会话。开发许可仅限WOS与测试窗：普通批次结束释放执行锁并保留剩余许可；停止、到期、锁屏/休眠、权限撤销或客户端超时会撤销。系统权限仍逐次检查。"))
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; logView = NSTextView(); logView.isEditable = false; logView.font = .monospacedSystemFont(ofSize: 11, weight: .regular); scroll.documentView = logView; stack.addArrangedSubview(scroll)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 230).isActive = true
         window.contentView = stack; window.center(); window.makeKeyAndOrderFront(nil)
@@ -72,6 +80,7 @@ final class Studio: NSObject, NSApplicationDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let s = self else { return }
+                if s.inputAuthorization.expired(now:s.uptime) { s.end("development_expired") }
                 if s.sessionToken != nil && Date().timeIntervalSince(s.lastActivity) > 120 { s.end("client_timeout") }
             }
         }
@@ -86,7 +95,8 @@ final class Studio: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { end("app_exit"); if let m=testEventMonitor { NSEvent.removeMonitor(m) }; if socketFD >= 0 { Darwin.close(socketFD); unlink(support.appendingPathComponent("control.sock").path) } }
     @objc func refresh() {
-        label.stringValue = "屏幕录制：\(CGPreflightScreenCaptureAccess() ? "已允许" : "未允许")   辅助功能：\(AXIsProcessTrusted() ? "已允许" : "未允许")\n输入：\(inputEnabled ? "本次允许" : "停止")   运行：\(runID ?? "无")\n权限主体：\(ownBundle) · \(Bundle.main.bundlePath)"
+        let inputLabel = inputAuthorization.deadline != nil && inputEnabled ? "开发会话剩余\(Int(inputAuthorization.remaining(now:uptime)/60))分钟" : (inputEnabled ? "本次允许" : "停止")
+        label.stringValue = "屏幕录制：\(CGPreflightScreenCaptureAccess() ? "已允许" : "未允许")   辅助功能：\(AXIsProcessTrusted() ? "已允许" : "未允许")\n输入：\(inputLabel)   运行：\(runID ?? "无")\n权限主体：\(ownBundle) · \(Bundle.main.bundlePath)"
     }
     @objc func requestPermissions() {
         _ = CGRequestScreenCaptureAccess()
@@ -95,7 +105,12 @@ final class Studio: NSObject, NSApplicationDelegate {
     }
     @objc func enable() {
         guard sessionAvailable, onConsole(), !screenLocked(), AXIsProcessTrusted(), CGPreflightScreenCaptureAccess() else { log("enable_blocked", ["reason": "session_or_permissions"]); refresh(); return }
-        inputEnabled = true; log("input_enabled_by_user", [:]); refresh()
+        inputAuthorization.allowOnce(); log("input_enabled_by_user", [:]); refresh()
+    }
+    @objc func enableDevelopment() {
+        guard sessionAvailable, onConsole(), !screenLocked(), AXIsProcessTrusted(), CGPreflightScreenCaptureAccess() else { log("enable_blocked",["reason":"session_or_permissions"]); refresh(); return }
+        guard inputAuthorization.allowDevelopment(now:uptime) else { return }
+        log("development_enabled_by_user",["seconds":7200,"targets":[ownBundle,"com.gof.global"]]); refresh()
     }
     @objc func stop() { end("user_stop") }
     @objc func openTest() {
@@ -105,6 +120,9 @@ final class Studio: NSObject, NSApplicationDelegate {
         v.addArrangedSubview(NSTextField(labelWithString: "READY 测试窗口"))
         v.addArrangedSubview(NSButton(title: "点击计数 +1", target: self, action: #selector(testClick)))
         let field = NSTextField(string: ""); field.placeholderString = "键盘测试（不输入个人信息）"; v.addArrangedSubview(field)
+        v.addArrangedSubview(NSButton(title:"允许本次输入",target:self,action:#selector(enable)))
+        v.addArrangedSubview(NSButton(title:"允许开发2小时",target:self,action:#selector(enableDevelopment)))
+        v.addArrangedSubview(NSButton(title:"停止 / 释放",target:self,action:#selector(stop)))
         w.contentView = v; w.center(); w.makeKeyAndOrderFront(nil); testWindow = w
     }
     var clicks = 0
@@ -117,7 +135,8 @@ final class Studio: NSObject, NSApplicationDelegate {
         logView?.textStorage?.append(NSAttributedString(string: String(data: data, encoding: .utf8) ?? "")); logView?.scrollToEndOfDocument(nil)
     }
     func end(_ reason: String) {
-        log("session_ended", ["reason": reason]); sessionToken = nil; selected = nil; inputEnabled = false; runID = nil
+        admissionGeneration += 1; pendingAdmission = nil
+        log("session_ended", ["reason": reason]); sessionToken = nil; selected = nil; inputAuthorization.finishRun(reason:reason); runID = nil
         if lockFD >= 0 { flock(lockFD, LOCK_UN); Darwin.close(lockFD); lockFD = -1 }
         refresh()
     }
@@ -125,6 +144,7 @@ final class Studio: NSObject, NSApplicationDelegate {
         return ["version": appVersion, "backend": "native-macos", "bundle_id": ownBundle, "app_path": Bundle.main.bundlePath,
                 "screen_recording": CGPreflightScreenCaptureAccess(), "accessibility": AXIsProcessTrusted(), "on_console": onConsole(),
                 "session_available": sessionAvailable, "screen_locked_diagnostic": screenLocked(), "lock_support": false, "input_enabled": inputEnabled, "run_id": runID ?? NSNull(),
+                "input_authorization":["mode":inputAuthorization.deadline != nil ? "development" : (inputEnabled ? "one_run" : "disabled"),"remaining_seconds":inputAuthorization.remaining(now:uptime)],
                 "global_pointer_impact": "unverified", "window_directed_input": "experimental_typed_native_transport", "cua_dependency": false,"app_active":NSApp.isActive,"skylight_mouse_available":NativeMouseTransport.post != nil,"window_location_stamp_available":NativeMouseTransport.setWindowLocation != nil,
                 "socket": support.appendingPathComponent("control.sock").path, "lock_file": compatibilityLock.path]
     }
@@ -136,6 +156,7 @@ final class Studio: NSObject, NSApplicationDelegate {
         guard let t = request["session"] as? String, t == sessionToken, let w = selected else { throw Failure("invalid_session") }
         guard sessionAvailable, onConsole(), !screenLocked() else { end("session_inactive"); throw Failure("session_inactive") }
         guard CGPreflightScreenCaptureAccess() else { end("screen_permission_revoked"); throw Failure("permission_denied:screen_recording") }
+        if input && inputAuthorization.expired(now:uptime) { end("development_expired"); throw Failure("development_authorization_expired") }
         if input && (!inputEnabled || !AXIsProcessTrusted()) { end("input_disabled_or_revoked"); throw Failure("permission_denied:input") }
         lastActivity = Date(); return w
     }
@@ -157,23 +178,44 @@ final class Studio: NSObject, NSApplicationDelegate {
     func handle(_ q: [String: Any]) async throws -> [String: Any] {
         guard let op = q["op"] as? String else { throw Failure("missing_operation") }
         if op == "status" { return status() }
+        if op == "open_test" {
+            guard sessionToken == nil, pendingAdmission == nil else { throw Failure("active_executor") }
+            openTest(); return ["opened":true,"input_enabled":inputEnabled]
+        }
+        if op == "shutdown" {
+            guard sessionToken == nil, pendingAdmission == nil else { throw Failure("active_executor") }
+            log("normal_shutdown_requested",[:])
+            DispatchQueue.main.asyncAfter(deadline:.now()+0.2) { NSApp.terminate(nil) }
+            return ["shutdown_scheduled":true]
+        }
         if op == "windows" {
             let c = try await shareable()
             return ["windows": c.windows.filter { $0.owningApplication?.bundleIdentifier == "com.gof.global" || ($0.owningApplication?.bundleIdentifier == ownBundle && ($0.title ?? "").hasPrefix("Macro Studio Test Target")) }.map { ["id": $0.windowID, "pid": $0.owningApplication!.processID, "bundle_id": $0.owningApplication!.bundleIdentifier, "title": $0.title ?? "", "width": $0.frame.width, "height": $0.frame.height] as [String: Any] }]
         }
         if op == "begin" {
             guard inputEnabled, sessionAvailable, onConsole(), !screenLocked(), AXIsProcessTrusted() else { throw Failure("input_not_enabled_in_app") }
-            guard sessionToken == nil else { throw Failure("active_executor") }
+            guard sessionToken == nil, pendingAdmission == nil else { throw Failure("active_executor") }
             guard let wid = q["window_id"] as? UInt32, let expected = q["expected_size"] as? [Double], expected.count == 2,
                   let rid = q["run_id"] as? String, !rid.isEmpty, rid.count <= 100 else { throw Failure("invalid_begin") }
             let c = try await shareable()
             guard let w = c.windows.first(where: {$0.windowID == wid}), let bundle = w.owningApplication?.bundleIdentifier,
                   bundle == "com.gof.global" || (bundle == ownBundle && (w.title ?? "").hasPrefix("Macro Studio Test Target")) else { throw Failure("target_not_allowed") }
             guard [w.frame.width,w.frame.height] == expected else { throw Failure("window_size_changed") }
-            guard sessionToken == nil, inputEnabled, !screenLocked() else { throw Failure("active_executor_or_disabled") }
-            let fd = Darwin.open(compatibilityLock.path, O_CREAT | O_RDWR, 0o600)
-            guard fd >= 0 else { throw Failure("lock_file_unavailable") }
-            guard flock(fd, LOCK_EX | LOCK_NB) == 0 else { Darwin.close(fd); throw Failure("active_executor") }
+            guard sessionToken == nil, pendingAdmission == nil, inputEnabled, !screenLocked() else { throw Failure("active_executor_or_disabled") }
+            let admission = UUID(), generation = admissionGeneration
+            pendingAdmission = admission
+            defer { if pendingAdmission == admission { pendingAdmission = nil } }
+            let fd = await NativeLockAdmission.acquire(path: compatibilityLock.path)
+            guard fd >= 0 else {
+                if fd == -2 { throw Failure("lock_admission_timeout") }
+                if fd == -3 { throw Failure("active_executor") }
+                throw Failure("lock_file_unavailable")
+            }
+            guard pendingAdmission == admission, generation == admissionGeneration,
+                  sessionToken == nil, inputEnabled, sessionAvailable, onConsole(), !screenLocked(),
+                  AXIsProcessTrusted(), CGPreflightScreenCaptureAccess() else {
+                Darwin.close(fd); throw Failure("lock_admission_cancelled")
+            }
             lockFD = fd; selected = w; sessionToken = UUID().uuidString; runID = rid; lastActivity = Date(); log("session_started", ["window_id": wid, "target_bundle": bundle]); refresh()
             return ["session":sessionToken!, "window_id":wid, "size":expected, "backend":"native-macos", "version":appVersion]
         }
@@ -201,7 +243,12 @@ final class Studio: NSObject, NSApplicationDelegate {
             let raw = try point(q["point"])
             let settings = ((try? Data(contentsOf:support.appendingPathComponent("config.json"))).flatMap { try? JSONSerialization.jsonObject(with:$0) as? [String:Any] }) ?? [:]
             let profile = settings["mouse_event_profile"] as? String ?? "window"
-            guard ["window","window-subtype0","legacy-global","global-subtype3","skylight-screen","skylight-local","skylight-unstamped","skylight-local-command"].contains(profile) else { throw Failure("invalid_mouse_event_profile") }
+            guard ["window","window-subtype0","legacy-global","global-subtype3","skylight-screen","skylight-local","skylight-unstamped","skylight-local-command","skylight-cg-screen"].contains(profile) else { throw Failure("invalid_mouse_event_profile") }
+            let directCG = profile == "skylight-cg-screen"
+            let directStamp = settings["mouse_cg_window_stamp"] as? String ?? "local"
+            let directLocation = settings["mouse_cg_location"] as? String ?? "screen"
+            let directPhase = settings["mouse_cg_phase"] as? Int ?? 3
+            guard !directCG || (["local","screen","none"].contains(directStamp) && ["screen","window"].contains(directLocation) && (0...3).contains(directPhase)) else { throw Failure("invalid_mouse_cg_encoding") }
             let sky = profile.hasPrefix("skylight-")
             delivery = sky ? "SLEventPostToPid" : "postToPid"
             let holdMS = settings["mouse_hold_ms"] as? Int ?? 100
@@ -216,18 +263,26 @@ final class Studio: NSObject, NSApplicationDelegate {
             let local = CGPoint(x:raw.x,y:(ownWindow != nil ? fresh.frame.height : (NSScreen.screens.first?.frame.height ?? 0))-raw.y)
             let number = seq + 1
             func mouse(_ type: NSEvent.EventType, _ pressure: Float) -> CGEvent? {
-                guard let event = NSEvent.mouseEvent(with:type,location:local,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:Int(fresh.windowID),context:nil,eventNumber:number,clickCount:1,pressure:pressure)?.cgEvent else { return nil }
-                if profile == "legacy-global" || profile == "global-subtype3" || sky { event.location = p }
+                let event: CGEvent
+                if directCG {
+                    guard let encoded = NativeClickEncoding.make(type:type == .leftMouseDown ? .leftMouseDown : .leftMouseUp,
+                        screenPoint:directLocation == "screen" ? p : raw, windowID:fresh.windowID, pid:pid, group:Int64(number), phase:Int64(directPhase)) else { return nil }
+                    event = encoded
+                } else {
+                    guard let encoded = NSEvent.mouseEvent(with:type,location:local,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:Int(fresh.windowID),context:nil,eventNumber:number,clickCount:1,pressure:pressure)?.cgEvent else { return nil }
+                    event = encoded
+                }
+                if profile == "legacy-global" || profile == "global-subtype3" || (sky && !directCG) { event.location = p }
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointer,value:Int64(fresh.windowID))
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent,value:Int64(fresh.windowID))
                 event.setIntegerValueField(.mouseEventButtonNumber,value:0)
                 event.setIntegerValueField(.mouseEventSubtype,value:profile == "window-subtype0" || profile == "legacy-global" ? 0 : 3)
                 event.setIntegerValueField(.eventTargetUnixProcessID,value:Int64(pid))
-                if phaseNumbers {
+                if phaseNumbers && !directCG {
                     event.setIntegerValueField(.mouseEventNumber,value:type == .leftMouseDown ? 1 : 2)
                 }
-                if sky && profile != "skylight-unstamped" {
-                    let stamp = profile == "skylight-screen" ? p : raw
+                if sky && profile != "skylight-unstamped" && (!directCG || directStamp != "none") {
+                    let stamp = directCG ? (directStamp == "screen" ? p : raw) : (profile == "skylight-screen" ? p : raw)
                     NativeMouseTransport.setWindowLocation?(event,stamp.x,stamp.y)
                 }
                 if profile == "skylight-local-command" { event.flags = .maskCommand }
@@ -235,6 +290,7 @@ final class Studio: NSObject, NSApplicationDelegate {
             }
             guard let down=mouse(.leftMouseDown,1), let up=mouse(.leftMouseUp,0) else { throw Failure("event_creation_failed") }
             let decoded=NSEvent(cgEvent:down)
+            if directCG { log("direct_cg_encoding",["location":directLocation,"window_stamp":directStamp,"target_phase":directPhase,"group":number]) }
             log("mouse_constructed",["profile":profile,"hold_ms":holdMS,"touch_phase_numbers":phaseNumbers,"requested_point":[raw.x,raw.y],"global_target":[p.x,p.y],"cg_location":[down.location.x,down.location.y],"decoded_window_point":[decoded?.locationInWindow.x ?? -1,decoded?.locationInWindow.y ?? -1],"decoded_window_id":decoded?.windowNumber ?? -1,"target_window_id":fresh.windowID,"target_is_own_window":ownWindow != nil,"target_app_active":NSRunningApplication(processIdentifier:pid)?.isActive ?? false])
             guard let release = up.data else { throw Failure("event_encoding_failed") }
             let releaseData = release as Data
@@ -242,11 +298,14 @@ final class Studio: NSObject, NSApplicationDelegate {
             let targetActiveBefore=NSRunningApplication(processIdentifier:pid)?.isActive ?? false
             down.timestamp = DispatchTime.now().uptimeNanoseconds
             if sky {
-                guard let move=CGEvent(mouseEventSource:nil,mouseType:.mouseMoved,mouseCursorPosition:p,mouseButton:.left) else { throw Failure("event_creation_failed") }
+                guard let move = directCG
+                    ? NativeClickEncoding.make(type:.mouseMoved,screenPoint:directLocation == "screen" ? p : raw,windowID:fresh.windowID,pid:pid,group:Int64(number),phase:Int64(directPhase))
+                    : CGEvent(mouseEventSource:nil,mouseType:.mouseMoved,mouseCursorPosition:p,mouseButton:.left)
+                else { throw Failure("event_creation_failed") }
                 move.setIntegerValueField(.mouseEventWindowUnderMousePointer,value:Int64(fresh.windowID))
                 move.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent,value:Int64(fresh.windowID))
                 move.setIntegerValueField(.eventTargetUnixProcessID,value:Int64(pid))
-                if profile != "skylight-unstamped" { let stamp=profile == "skylight-screen" ? p : raw;NativeMouseTransport.setWindowLocation?(move,stamp.x,stamp.y) }
+                if profile != "skylight-unstamped" && (!directCG || directStamp != "none") { let stamp=directCG ? (directStamp == "screen" ? p : raw) : (profile == "skylight-screen" ? p : raw);NativeMouseTransport.setWindowLocation?(move,stamp.x,stamp.y) }
                 NativeMouseTransport.post?(pid,move)
                 NativeMouseTransport.post?(pid,down)
             } else { down.postToPid(pid) }
@@ -305,7 +364,7 @@ final class Studio: NSObject, NSApplicationDelegate {
     }
 }
 if CommandLine.arguments.contains("--self-check") {
-    print(String(data:encode(["version":appVersion,"bundle_id":ownBundle,"cua_dependency":false,"operations":["status","windows","begin","screenshot","click","key","end"],"lock_support":false]),encoding:.utf8)!)
+    print(String(data:encode(["version":appVersion,"bundle_id":ownBundle,"cua_dependency":false,"operations":["status","open_test","shutdown","windows","begin","screenshot","click","key","end"],"lock_support":false]),encoding:.utf8)!)
 } else {
     signal(SIGPIPE,SIG_IGN)
     MainActor.assumeIsolated { let app=NSApplication.shared;let delegate=Studio();app.delegate=delegate;app.setActivationPolicy(.regular);app.run() }

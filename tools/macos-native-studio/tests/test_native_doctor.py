@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from native_doctor import diagnose
+from native_doctor import diagnose, attach_signing_diagnostics
 import client
 
 
@@ -18,6 +18,17 @@ def ready():
 
 
 class DoctorTests(unittest.TestCase):
+    def test_untrusted_signature_is_not_readiness_even_with_all_tcc_grants(self):
+        report = attach_signing_diagnostics(diagnose(ready()), {'bundle_version':'0.1.0','signature_verified':False,'verification_error':'CSSMERR_TP_NOT_TRUSTED'})
+        self.assertFalse(report['ready_for_test_window'])
+        self.assertIn('installed_signature_not_verified',report['blockers'])
+        self.assertFalse(report['input_sent'])
+
+    def test_valid_matching_build_can_proceed_to_test_target_only(self):
+        report = attach_signing_diagnostics(diagnose(ready()), {'bundle_version':'0.1.0','signature_verified':True})
+        self.assertTrue(report['ready_for_test_window'])
+        self.assertFalse(report['wos_accepted'])
+
     def test_ready_means_test_target_only_not_wos_acceptance(self):
         report = diagnose(ready(), '/tmp/shared.lock')
         self.assertTrue(report['ready_for_test_window'])

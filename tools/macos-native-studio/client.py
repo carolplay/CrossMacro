@@ -5,7 +5,7 @@ from pathlib import Path
 from native_backend import NativeBackend,failure_details
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('operation',choices=['status','doctor','windows','self-test']);p.add_argument('--output',type=Path);p.add_argument('--expected-lock');p.add_argument('--execute',action='store_true');a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('operation',choices=['status','doctor','windows','self-test','open-test','shutdown']);p.add_argument('--output',type=Path);p.add_argument('--expected-lock');p.add_argument('--execute',action='store_true');a=p.parse_args()
  b=NativeBackend({})
  try:status=b.request('status')
  except (OSError,TimeoutError) as exc:
@@ -15,8 +15,10 @@ def main():
   if a.output:a.output.mkdir(parents=True,exist_ok=True);(a.output/'doctor.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
   print(json.dumps(report,ensure_ascii=False,indent=2));return 2
  if a.operation=='status':print(json.dumps(status,ensure_ascii=False,indent=2));return
+ if a.operation in {'open-test','shutdown'}:
+  print(json.dumps(b.request(a.operation.replace('-','_')),ensure_ascii=False,indent=2));return
  if a.operation=='doctor':
-  from native_doctor import diagnose,signing_identity,probe_device_lock
+  from native_doctor import diagnose,signing_identity,probe_device_lock,attach_signing_diagnostics
   report=diagnose(status,a.expected_lock)
   lock_probe=probe_device_lock(status.get('lock_file',''))
   report['shared_lock_probe']=lock_probe
@@ -25,9 +27,9 @@ def main():
   elif not lock_probe['free_at_check']:
    report['blockers'].append('shared_lock_busy')
   report['ready_for_test_window']=not report['blockers']
-  try:report['installed_identity']=signing_identity(status['app_path'])
-  except (OSError,ValueError) as exc:report['identity_error']=str(exc)
-  if report.get('installed_identity',{}).get('bundle_version')!=status.get('version'):report['restart_required']=True
+  try:attach_signing_diagnostics(report,signing_identity(status['app_path']))
+  except (OSError,ValueError) as exc:
+   report.update(identity_error=str(exc),ready_for_test_window=False);report['blockers'].append('installed_signature_unavailable')
   if a.output:a.output.mkdir(parents=True,exist_ok=True);(a.output/'doctor.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
   print(json.dumps(report,ensure_ascii=False,indent=2));return
  windows=b.request('windows')['windows']
@@ -36,7 +38,7 @@ def main():
  targets=[w for w in windows if w['bundle_id']=='io.crossmacro.macro-studio' and re.fullmatch(r'Macro Studio Test Target(?: — \d+)?',w['title'])]
  if len(targets)!=1:raise ValueError('Open one fresh built-in test target from Studio first')
  w=targets[0];baseline=int(w['title'].rsplit(' — ',1)[1]) if ' — ' in w['title'] else 0;b.config.update(native_window_id=w['id'],native_expected_size=[w['width'],w['height']],native_lock_file=status['lock_file'])
- report={'version':status.get('version'),'client_version':'0.1.4','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
+ report={'version':status.get('version'),'client_version':'0.1.5','cua_dependency':False,'target':w,'counter_before':baseline,'started_unix':time.time(),'status':'failed','game_input':False}
  if a.output:a.output.mkdir(parents=True,exist_ok=True)
  try:
   b.start();before=b.request('screenshot')
