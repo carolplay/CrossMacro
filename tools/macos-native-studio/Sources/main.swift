@@ -5,7 +5,7 @@ import Vision
 import ImageIO
 import Darwin
 
-let appVersion = "0.1.8"
+let appVersion = "0.1.9"
 let ownBundle = "io.crossmacro.macro-studio"
 func screenLocked() -> Bool {
     // WindowServer diagnostic; not a supported unlock mechanism or lock-screen capability.
@@ -32,7 +32,8 @@ final class Studio: NSObject, NSApplicationDelegate {
     var inputAuthorization = InputAuthorization()
     var uptime: TimeInterval { ProcessInfo.processInfo.systemUptime }
     var inputEnabled: Bool { inputAuthorization.allowed(now:uptime) }
-    var sessionAvailable = true
+    var lifecycle = NativeSessionLifecycle()
+    var sessionAvailable: Bool { lifecycle.available }
     var selected: SCWindow?
     var sessionToken: String?
     var lockFD: Int32 = -1
@@ -72,11 +73,26 @@ final class Studio: NSObject, NSApplicationDelegate {
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; logView = NSTextView(); logView.isEditable = false; logView.font = .monospacedSystemFont(ofSize: 11, weight: .regular); scroll.documentView = logView; stack.addArrangedSubview(scroll)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 230).isActive = true
         window.contentView = stack; window.center(); window.makeKeyAndOrderFront(nil)
-        for name in [NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
-            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.sessionAvailable = false; self?.end("session_inactive") } }
+        let lifecycleEvents: [(Notification.Name, NativeSessionLifecycle.Event)] = [
+            (NSWorkspace.sessionDidResignActiveNotification, .sessionResigned),
+            (NSWorkspace.sessionDidBecomeActiveNotification, .sessionBecameActive),
+            (NSWorkspace.willSleepNotification, .systemWillSleep),
+            (NSWorkspace.didWakeNotification, .systemDidWake),
+            (NSWorkspace.screensDidSleepNotification, .screensDidSleep),
+            (NSWorkspace.screensDidWakeNotification, .screensDidWake)
+        ]
+        for (name, event) in lifecycleEvents {
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    let revoke = self.lifecycle.receive(event)
+                    self.log("session_lifecycle", ["notification": name.rawValue,
+                        "session_available": self.sessionAvailable,
+                        "displays_awake": self.lifecycle.displaysAwake])
+                    if let reason = revoke { self.end(reason) } else { self.refresh() }
+                }
+            }
         }
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.sessionAvailable = true; self?.refresh() } }
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.sessionAvailable = true; self?.refresh() } }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let s = self else { return }
@@ -143,7 +159,7 @@ final class Studio: NSObject, NSApplicationDelegate {
     func status() -> [String: Any] {
         return ["version": appVersion, "backend": "native-macos", "bundle_id": ownBundle, "app_path": Bundle.main.bundlePath,
                 "screen_recording": CGPreflightScreenCaptureAccess(), "accessibility": AXIsProcessTrusted(), "on_console": onConsole(),
-                "session_available": sessionAvailable, "screen_locked_diagnostic": screenLocked(), "lock_support": false, "input_enabled": inputEnabled, "run_id": runID ?? NSNull(),
+                "session_available": sessionAvailable, "displays_awake": lifecycle.displaysAwake, "screen_locked_diagnostic": screenLocked(), "lock_support": false, "input_enabled": inputEnabled, "run_id": runID ?? NSNull(),
                 "input_authorization":["mode":inputAuthorization.deadline != nil ? "development" : (inputEnabled ? "one_run" : "disabled"),"remaining_seconds":inputAuthorization.remaining(now:uptime)],
                 "global_pointer_impact": "unverified", "window_directed_input": "experimental_typed_native_transport", "cua_dependency": false,"app_active":NSApp.isActive,"skylight_mouse_available":NativeMouseTransport.post != nil,"window_location_stamp_available":NativeMouseTransport.setWindowLocation != nil,
                 "socket": support.appendingPathComponent("control.sock").path, "lock_file": compatibilityLock.path]

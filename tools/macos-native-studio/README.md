@@ -68,7 +68,7 @@ rebuild. Running and installed bundle versions are kept separate.
 2. Put `config.example.json` at `~/Library/Application Support/Macro Studio/config.json` and replace its lock path with the real existing V2 `visit.lock`. Restart the app before testing. No second daily scheduler is installed.
 3. Open the built-in test window, then click **允许本次输入** in Studio. The first test is restricted to this window, not WOS.
 4. Use `python3 tools/macos-native-studio/client.py status`, then `windows`. `self-test --execute --output /private/test/evidence` performs one OCR-targeted test-button click and verifies the observed counter increases by exactly one. Repeated tests need no app restart; sending an event without the corresponding counter change fails.
-5. Stop releases the real flock and revokes input. Session/screen sleep notifications and a 120-second idle watchdog also stop it. This prototype requires enabling each input session; unattended scheduling is a later milestone.
+5. Stop releases the real flock and revokes input. Console-session deactivation, system sleep and a 120-second idle watchdog also stop it. In candidate0.1.9, display power-off is tracked separately and display wake cannot reactivate an inactive session. This prototype requires enabling each input session; unattended scheduling is a later milestone.
 
 A preflight result, accepted event or interface success is not proof that the UI changed. Background input, pointer isolation, WOS touch alternatives, image geometry, permissions after restart/update, capture with the monitor asleep, and locked-session behavior all require separate evidence. V3 0.1.0 does **not** support locked operation. The WindowServer lock diagnostic is best-effort, not an unlock mechanism or a substitute for explicit session/permission checks.
 
@@ -132,3 +132,10 @@ A Documents-based shared lock also needs ordinary macOS Documents-folder consent
 ### Candidate admission responsiveness
 
 0.1.8 moves opening the shared Documents lock off the App main thread. Admission has an eight-second deadline; a delayed descriptor is closed instead of starting a late session after the client has timed out. Stop invalidates pending admissions, a second begin is rejected, and permissions/session state are checked again before accepting the acquired lock. This does not grant Documents access or avoid its system consent prompt. The temporary-lock check covers contention, open failure, timeout, and late-result release without sending UI input. Candidate only; native WOS acceptance remains pending.
+
+
+## 0.1.9: separate display power from session admission
+
+The earlier observer grouped display sleep with console-session deactivation and treated display wake as session activation. The new lifecycle state machine separates display power, system sleep and console activity. It preserves the real screen-lock, console and TCC checks at every input admission; it does not unlock the Mac or claim locked-session support. Pure transition tests and a separate candidate build pass; live display-off/WOS acceptance remains pending. The authorized stable App is not replaced.
+
+A dedicated self-signed candidate can pass strict verification in the normal system environment while the restricted shell reports CSSMERR_TP_NOT_TRUSTED. Compare the same bundle under both environments before asking for trust changes. No global or user trust settings were changed. New signed-build permission persistence must still be tested across two builds; identical bundle names alone do not establish continuity.
