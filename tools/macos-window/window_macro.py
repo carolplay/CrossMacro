@@ -440,6 +440,8 @@ def text_target_points(data, target, size, origin, extent):
         if left <= cx <= right and top <= cy <= bottom:
             offset = target.get('offset', [0, 0])
             point = [round(cx)+offset[0], round(cy)+offset[1]]
+            if 'fixed_x' in target:
+                point[0] = target['fixed_x']
             if not all(0 <= v < size[i] for i, v in enumerate(point)):
                 raise RuntimeError('OCR target resolves outside the reference window')
             matches.append(point)
@@ -597,7 +599,7 @@ def validate_workflow(workflow):
                 target=step['text_target']
                 if not isinstance(target,dict):raise ValueError('text_target must be an object')
                 bounds=target.get('bounds',[])
-                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr','prefer_frame_ocr'}
+                if (set(target)-{'text','bounds','exact','min_confidence','offset','regex','select','crop_ocr','prefer_frame_ocr','fixed_x'}
                     or not isinstance(target.get('text'),str) or not normalize(target['text'])
                     or type(target.get('exact',True)) is not bool
                     or type(target.get('regex',False)) is not bool
@@ -609,6 +611,7 @@ def validate_workflow(workflow):
                     or not isinstance(target.get('offset',[0,0]),list)
                     or len(target.get('offset',[0,0])) != 2
                     or any(type(v) is not int or abs(v)>max(size) for v in target.get('offset',[0,0]))
+                    or 'fixed_x' in target and (type(target['fixed_x']) is not int or not 0 <= target['fixed_x'] < size[0])
                     or not 0 <= target.get('min_confidence',.8) <= 1
                     or len(bounds)!=4 or any(type(v) is not int for v in bounds)
                     or not 0<=bounds[0]<bounds[2]<=size[0]
