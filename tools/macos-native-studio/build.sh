@@ -10,6 +10,15 @@ if [ "$TASK_APP" = "$TASK_STABLE_APP" ] && [ -d "$TASK_STABLE_APP" ] && [ "${MAC
     printf '%s\n' 'Refusing to overwrite the authorized stable App with an ad-hoc build. Build a candidate, then establish a persistent signing identity before deployment.' >&2
     exit 2
 fi
+/usr/bin/python3 - "$TASK_SOURCE" <<'PYVERSION'
+import plistlib,re,sys
+from pathlib import Path
+source=Path(sys.argv[1])
+metadata=plistlib.loads((source/'Info.plist').read_bytes())
+match=re.search(r'let appVersion = "([^"]+)"', (source/'Sources/main.swift').read_text())
+if not match or match[1] != metadata['CFBundleShortVersionString']:
+    raise SystemExit('App metadata and runtime versions differ; correct them before building/signing.')
+PYVERSION
 mkdir -p "$TASK_APP/Contents/MacOS" "$TASK_APP/Contents/Resources" "$TASK_APP/Contents/Tools"
 cp "$TASK_SOURCE/Info.plist" "$TASK_APP/Contents/Info.plist"
 mkdir -p "$TASK_REPO/local-apps/.module-cache"
