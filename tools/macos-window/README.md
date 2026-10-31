@@ -154,6 +154,11 @@ repeat attempts after uncertain outcomes. Keep ledgers outside Git.
 
 Integer inventory reads retry only the same calibrated image crop when full-frame
 OCR is missing or ambiguous; an unreadable or ambiguous crop still stops input.
+Since0.4.12, `remember_numbers`, `unchanged_numbers`, and `increased_numbers`
+may explicitly set `crop_ocr: true` to read the same calibrated pixels in
+isolation even when full-frame OCR found a plausible integer (for example, a
+missing leading digit). Defaults remain unchanged; exact equality/delta and
+confidence checks still apply, and no new screenshot or business input is sent.
 Steps may declare `budget_checks` with `bounds`, `min`, and `max_config`. The
 selected integer must be within the configured local cap before input; a missing,
 invalid or exceeded cap fails closed. This is a generic configuration guard;

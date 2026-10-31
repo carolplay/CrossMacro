@@ -2,7 +2,7 @@
 import hashlib
 import json
 
-SUITE_VERSION = '0.4.11'
+SUITE_VERSION = '0.4.12'
 
 
 def workflow_identity(workflow):

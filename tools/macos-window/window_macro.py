@@ -85,7 +85,7 @@ def normalize(text):
     return ''.join(unicodedata.normalize('NFKC', text).translate(str.maketrans({'級':'级'})).split())
 
 
-def number_in_region(observation, bounds, min_confidence=.5):
+def number_in_region(observation, bounds, min_confidence=.5, *, crop_ocr=False):
     """Read exactly one integer from a calibrated inventory region."""
     if not isinstance(observation, Observation) or not observation.ocr_data:
         raise RuntimeError('Inventory checks require fresh local OCR geometry')
@@ -101,7 +101,9 @@ def number_in_region(observation, bounds, min_confidence=.5):
         if (left <= cx <= right and top <= cy <= bottom and line.get('confidence', 0) >= min_confidence
             and re.fullmatch(r'[0-9]+', value)):
             values.append(int(value))
-    if len(values) != 1 and observation.ocr_config:
+    if crop_ocr and not observation.ocr_config:
+        raise RuntimeError('Requested inventory crop requires local OCR configuration')
+    if (crop_ocr or len(values) != 1) and observation.ocr_config:
         # Read the same calibrated pixels in isolation before declaring an OCR
         # deviation. Never capture another image or repeat a business action.
         key = ('inventory', *bounds)
@@ -643,6 +645,7 @@ def validate_workflow(workflow):
             for item in step.get(key, []):
                 bounds = item.get('bounds', [])
                 if (not isinstance(item.get('name'), str) or not item['name']
+                    or type(item.get('crop_ocr',False)) is not bool
                     or type(item.get('min_confidence',.5)) not in (int,float)
                     or not .3 <= item.get('min_confidence',.5) <= 1
                     or len(bounds) != 4 or any(type(v) is not int for v in bounds)
@@ -971,17 +974,17 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
                     entry.setdefault('budget_checks',[]).append({'config_key':item['max_config'],
                         'selected':value,'maximum':limit})
                 for item in step.get('remember_numbers', []):
-                    inventory[item['name']] = number_in_region(before, item['bounds'], item.get('min_confidence',.5))
+                    inventory[item['name']] = number_in_region(before, item['bounds'], item.get('min_confidence',.5), crop_ocr=item.get('crop_ocr',False))
                     entry.setdefault('remembered_numbers', {})[item['name']] = inventory[item['name']]
                 for item in step.get('unchanged_numbers', []):
-                    value = number_in_region(before, item['bounds'], item.get('min_confidence',.5))
+                    value = number_in_region(before, item['bounds'], item.get('min_confidence',.5), crop_ocr=item.get('crop_ocr',False))
                     if item['name'] not in inventory or value != inventory[item['name']]:
                         raise FatalExecutionError('Inventory changed unexpectedly: ' + item['name'])
                     entry.setdefault('unchanged_numbers', {})[item['name']] = value
                 for item in step.get('increased_numbers', []):
                     for read_attempt in range(step.get('observe_attempts',1)):
                         try:
-                            value = number_in_region(before,item['bounds'],item.get('min_confidence',.5))
+                            value = number_in_region(before,item['bounds'],item.get('min_confidence',.5),crop_ocr=item.get('crop_ocr',False))
                             if item['name'] not in inventory or value <= inventory[item['name']]:
                                 raise RuntimeError('Expected inventory increase: '+item['name'])
                             break
