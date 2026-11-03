@@ -562,6 +562,8 @@ def validate_workflow(workflow):
         raise ValueError('reference_size must contain two positive integers')
     names = set()
     for step in workflow['steps']:
+        if 'when' in step:
+            raise ValueError('Unsupported step guard when; use skip_if or skip_if_any')
         if step['name'] in names:
             raise ValueError('Step names must be unique')
         if step.get('skip_if_step_skipped') is not None and step['skip_if_step_skipped'] not in names:
