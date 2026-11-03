@@ -198,7 +198,7 @@ def require_text(text, required):
                         and line.get('confidence', 0) >= region.get('min_confidence', .5)
                         and re.fullmatch(region['pattern'], normalize(line['text']))):
                         matches.append(line['text'])
-                if len(matches) == 1:
+                if 1 <= len(matches) <= region.get('max_matches', 1):
                     text.visual_checks.append({'regional_text': matches[0],
                         'bounds': region['bounds'], 'source': 'full-frame-preferred'})
                     continue
@@ -220,9 +220,9 @@ def require_text(text, required):
                 lines=text.timer_regions[key]
                 matches=[line['text'] for line in lines if line.get('confidence',0)>=region.get('min_confidence',.5)
                          and re.fullmatch(region['pattern'],normalize(line['text']))]
-                if len(matches)!=1:
-                    raise RuntimeError('Expected exactly one matching cropped text value')
-                text.visual_checks.append({'cropped_text':matches[0],'bounds':region['bounds']})
+                if not 1 <= len(matches) <= region.get('max_matches', 1):
+                    raise RuntimeError('Expected exactly one matching cropped text value' if region.get('max_matches',1)==1 else 'Cropped text match count outside declared range')
+                text.visual_checks.append({'cropped_text':matches[0],'bounds':region['bounds'], 'match_count':len(matches)})
                 continue
             left, top, right, bottom = region['bounds']
             data = text.ocr_data
@@ -233,9 +233,9 @@ def require_text(text, required):
                 if (left <= cx <= right and top <= cy <= bottom and line.get('confidence', 0) >= region.get('min_confidence',.5)
                     and re.fullmatch(region['pattern'], normalize(line['text']))):
                     matches.append(line['text'])
-            if len(matches) != 1:
-                raise RuntimeError('Expected exactly one matching regional text value')
-            text.visual_checks.append({'regional_text': matches[0], 'bounds': region['bounds']})
+            if not 1 <= len(matches) <= region.get('max_matches', 1):
+                raise RuntimeError('Expected exactly one matching regional text value' if region.get('max_matches',1)==1 else 'Regional text match count outside declared range')
+            text.visual_checks.append({'regional_text': matches[0], 'bounds': region['bounds'], 'match_count':len(matches)})
         if 'timer_seconds' in required:
             # Preserve line boundaries: joining a timer to the following
             # numeric hourly rate makes an otherwise valid timer unreadable.
@@ -419,6 +419,8 @@ def validate_condition(condition, size):
             or not 0<=region.get('min_confidence',.5)<=1
             or type(region.get('crop_ocr',False)) is not bool
             or type(region.get('prefer_frame_ocr',False)) is not bool
+            or type(region.get('max_matches',1)) is not int
+            or not 1<=region.get('max_matches',1)<=10
             or (region.get('prefer_frame_ocr') and not region.get('crop_ocr'))):
             raise ValueError('Invalid regional text assertion')
         re.compile(region['pattern'])
