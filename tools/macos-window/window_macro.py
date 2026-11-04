@@ -41,7 +41,7 @@ def require_workflow_time(deadline):
 
 
 def read_frame_ocr(command, deadline, retry_log):
-    """Retry one local OCR timeout on the same saved image, never UI input."""
+    """Retry one local OCR failure on the same saved image, never UI input."""
     events = []
     for attempt in range(2):
         remaining = deadline - time.monotonic()
@@ -50,11 +50,23 @@ def read_frame_ocr(command, deadline, retry_log):
         try:
             result = subprocess.run(command, capture_output=True, text=True,
                                     check=True, timeout=min(15, remaining))
-        except subprocess.TimeoutExpired:
-            events.append({'attempt': attempt + 1, 'error': 'local-ocr-timeout',
-                           'same_saved_frame': True, 'input_sent': False})
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
+            event = {'attempt': attempt + 1, 'same_saved_frame': True,
+                     'input_sent': False}
+            retryable = isinstance(exc, subprocess.TimeoutExpired)
+            if retryable:
+                event['error'] = 'local-ocr-timeout'
+            else:
+                stderr = str(exc.stderr or '')[:4096]
+                event.update(error='local-ocr-process-exit', returncode=exc.returncode,
+                             stderr=stderr)
+                denied = re.search(r'permission denied|operation not permitted|not authorized|'
+                                   r'authorization denied|拒绝|未授权|锁定', stderr, re.I)
+                retryable = exc.returncode == 1 and not denied
+            event['retryable'] = bool(retryable)
+            events.append(event)
             Path(retry_log).write_text(json.dumps(events, indent=2))
-            if attempt == 1 or time.monotonic() >= deadline:
+            if not retryable or attempt == 1 or time.monotonic() >= deadline:
                 raise
         else:
             if events:
@@ -62,6 +74,14 @@ def read_frame_ocr(command, deadline, retry_log):
                                'same_saved_frame': True, 'input_sent': False})
                 Path(retry_log).write_text(json.dumps(events, indent=2))
             return result
+
+
+def read_crop_ocr(observation, crop):
+    """Give regional OCR the same bounded, saved-frame recovery as full OCR."""
+    config = observation.ocr_config
+    deadline = config.get('deadline', time.monotonic() + 30)
+    return read_frame_ocr([config['binary'], str(crop), config['language']],
+                          deadline, crop.with_name(crop.stem + '-ocr-recovery.json'))
 
 
 def blank_observation_frame(path):
@@ -115,8 +135,7 @@ def number_in_region(observation, bounds, min_confidence=.5, *, crop_ocr=False):
             with Image.open(observation.image_path) as image:
                 region = image.crop(bounds)
                 region.resize((region.width*4,region.height*4),Image.Resampling.LANCZOS).save(crop)
-            raw = subprocess.run([observation.ocr_config['binary'],str(crop),observation.ocr_config['language']],
-                                 capture_output=True,text=True,check=True,timeout=15)
+            raw = read_crop_ocr(observation,crop)
             data = json.loads(raw.stdout)
             crop.with_name(crop.stem + '-ocr.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
             observation.timer_regions[key] = data['lines']
@@ -162,8 +181,7 @@ def require_text(text, required):
                 with Image.open(text.image_path) as image:
                     region = image.crop(bounds)
                     region.resize((region.width * 2, region.height * 2), Image.Resampling.LANCZOS).save(crop)
-                raw = subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],
-                                     capture_output=True,text=True,check=True,timeout=15)
+                raw = read_crop_ocr(text,crop)
                 data = json.loads(raw.stdout)
                 crop.with_name(crop.stem + '-ocr.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
                 text.timer_regions[key] = [line['text'] for line in data['lines'] if line.get('confidence',0) >= .5]
@@ -214,7 +232,7 @@ def require_text(text, required):
                     with Image.open(text.image_path) as image:
                         clipped=image.crop(region['bounds'])
                         clipped.resize((clipped.width*4,clipped.height*4),Image.Resampling.LANCZOS).save(crop)
-                    raw=subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+                    raw=read_crop_ocr(text,crop)
                     data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
                     text.timer_regions[key]=data['lines']
                 lines=text.timer_regions[key]
@@ -266,7 +284,7 @@ def require_text(text, required):
                     crop=derived/(stem+'.png')
                     with Image.open(text.image_path) as image:
                         region=image.crop(key);region.resize((region.width*4,region.height*4),Image.Resampling.LANCZOS).save(crop)
-                    raw=subprocess.run([text.ocr_config['binary'],str(crop),text.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+                    raw=read_crop_ocr(text,crop)
                     data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
                     text.timer_regions[key]='\n'.join(line['text'] for line in data['lines'])
                 timer_text=unicodedata.normalize('NFKC',text.timer_regions[key])
@@ -511,7 +529,7 @@ def resolve_point(step, observation, size):
             with Image.open(observation.image_path) as image:
                 clipped=image.crop(target['bounds'])
                 clipped.resize((clipped.width*4,clipped.height*4),Image.Resampling.LANCZOS).save(crop)
-            raw=subprocess.run([observation.ocr_config['binary'],str(crop),observation.ocr_config['language']],capture_output=True,text=True,check=True,timeout=15)
+            raw=read_crop_ocr(observation,crop)
             data=json.loads(raw.stdout);(derived/(stem+'-ocr.json')).write_text(json.dumps(data,ensure_ascii=False,indent=2))
             observation.timer_regions[key]=data
         data=observation.timer_regions[key];origin=[left,top];extent=[right-left,bottom-top]
@@ -840,7 +858,7 @@ class CuaMcp:
         size = [ocr['width'],ocr['height']]
         if size != expected_size:
             raise FatalExecutionError('Window size changed: %s; expected %s. Recalibrate before input.' % (size,expected_size))
-        observation = Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{})})
+        observation = Observation('\n'.join(line['text'] for line in ocr['lines']), path, ocr, {'binary':self.config['ocr_binary'],'language':self.config.get('language','en-US'),'templates':self.config.get('image_templates',{}),'deadline':self.deadline})
         if pending_viewport:
             try:
                 require_text(observation, pending_viewport[1])
