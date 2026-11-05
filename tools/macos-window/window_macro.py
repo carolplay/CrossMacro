@@ -778,6 +778,19 @@ class CuaMcp:
         raise FatalExecutionError('Original screenshot unavailable after invalid image response')
 
     def observe(self, folder, label, expected_size):
+        from observation_store import ObservationStore
+        if not hasattr(self, '_observation_store'):
+            self._observation_store = ObservationStore(self.config.get('log_dir', folder))
+        destination = Path(folder)
+        frame = self._observation_store.allocate(destination, label)
+        try:
+            observed = self._observe_frame(frame, label, expected_size)
+            self._observation_store.record(frame, destination, label, observed)
+            return observed
+        finally:
+            self._observation_store.flush(frame, destination)
+
+    def _observe_frame(self, folder, label, expected_size):
         import viewport_calibration as viewport
         calibrated = viewport.calibration(self.config, expected_size)
         native_expected = calibrated["native_size"] if calibrated else expected_size
@@ -875,6 +888,14 @@ class CuaMcp:
         return observation
 
     def close(self):
+        try:
+            self._close_process()
+        finally:
+            if hasattr(self, '_observation_store'):
+                self._observation_store.close()
+                del self._observation_store
+
+    def _close_process(self):
         if self.proc.poll() is None:
             os.killpg(self.proc.pid, signal.SIGTERM)
             try:
@@ -907,6 +928,7 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
         folder.mkdir()
         report = {'status':'running','step':step_name,'started_unix':time.time(),
             'runtime_model_calls':0,'chat_identity_supplied':False,'steps':[],
+            'evidence_policy':'temporary_pixels_structured_logs_only',
             'suite_version':SUITE_VERSION,'workflow':workflow_identity(workflow),
             'viewport_calibration':copy.deepcopy(config.get('viewport_calibration'))}
         client = backend
@@ -919,6 +941,7 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
                 client.deadline = min(client.deadline, absolute_deadline)
             inventory = {}
             for index, step in enumerate(workflow_steps(workflow, steps)):
+                report['current_step'] = {'index':index,'name':step['name'],'action':step['action'],'phase':'observe_before'}
                 require_workflow_time(client.deadline)
                 # A skipped branch has no business action or observation to do.
                 # The next eligible step always observes afresh before any input.
@@ -940,6 +963,7 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
                         break
                 skipped = any(entry['name'] == step.get('skip_if_step_skipped') and entry.get('skipped')
                               for entry in report['steps'])
+                report['current_step']['phase'] = 'verify_before'
                 for attempt in range(step.get('observe_attempts', 1)):
                     if skipped:
                         break
@@ -1017,6 +1041,7 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
                     entry.setdefault('increased_numbers',{})[item['name']] = {
                         'before':inventory[item['name']], 'after':value,
                         'increase':value-inventory[item['name']], 'read_attempts':read_attempt+1}
+                report['current_step']['phase'] = 'execute_and_verify'
                 if step['action'] == 'key':
                     entry['key_unix']=time.time()
                     import backend_input
@@ -1094,7 +1119,7 @@ def execute(config, workflow, step_name, backend=None, absolute_deadline=None):
                 print(json.dumps({'status':'step_passed','step':step['name']},ensure_ascii=False),flush=True)
             report['status'] = 'passed'
         except (Exception, KeyboardInterrupt) as exc:
-            report.update(status='failed',error=str(exc),error_type=type(exc).__name__)
+            report.update(status='failed',error=str(exc),error_type=type(exc).__name__,failed_step=copy.deepcopy(report.get('current_step')))
             raise
         finally:
             if client is not None and backend is None:

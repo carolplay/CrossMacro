@@ -42,7 +42,7 @@ new scale, ignore identity checks, or grant permissions.
 
 The selected profile is frozen for that backend's lifetime. Unknown dimensions,
 ambiguous profiles, wrong entry pages, and later dimension changes still stop
-input. The original image and `*-viewport-preflight.json` record the selection.
+input. The observation hash and `*-viewport-preflight.json` record the selection; pixels are temporary.
 Leave the option absent to retain strict single-size behavior. A new size needs
 an explicit calibration and live anchor verification before registration.
 
@@ -51,8 +51,8 @@ at most two extra original-image reads from the same documented API. No input
 is sent while the image is invalid. Only the frozen expected size (or an exact
 validated startup profile with its entry condition) can resume execution.
 Persistent mismatches still fail; permission/transport errors propagate without
-retry or backend failover. Invalid originals and a successful recovery event
-are retained separately. This does not fix `noWindowsAvailable` on input.
+retry or backend failover. Invalid dimensions and a successful recovery event
+are recorded as metadata; original pixels are temporary. This does not fix `noWindowsAvailable` on input.
 
 Executor 0.4.3 applies the same bounded read-only recovery to almost entirely
 white frames, even when their dimensions match. Each RGB channel must have
@@ -231,6 +231,6 @@ Repeated navigation keys now fetch fresh window state after each gesture.
 
 ### Explicit fixed viewport calibration (suite 0.3.0)
 
-Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw pixels are retained beside a canonical OCR image; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
+Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw and canonical pixels live only in a bounded two-observation temporary store, including crop caches, and are removed on backend close. OCR and observation hashes remain in structured logs; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
 
 Observation steps may set `observe_interval_seconds` (0–5 seconds) to space failed-condition retries, within the existing `observe_attempts` and workflow deadline. The default stays zero. This supports waiting for an external game state without busy screenshot polling or repeating input; it does not retry failed input calls.
