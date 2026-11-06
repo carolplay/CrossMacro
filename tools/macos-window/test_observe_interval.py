@@ -17,7 +17,7 @@ class ObservationIntervalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             client=Mock();client.observe.return_value='TRAVELLING'
             with patch.object(macro.time,'monotonic',side_effect=[100,100,158]),patch.object(macro.time,'sleep') as sleep:
-                with self.assertRaises(macro.FatalExecutionError):macro.execute({'log_dir':directory},self.flow(),'all',backend=client)
+                with self.assertRaises(macro.WorkflowBudgetExceeded):macro.execute({'log_dir':directory},self.flow(),'all',backend=client)
             sleep.assert_not_called();self.assertEqual(1,client.observe.call_count);client.js.assert_not_called()
     def test_interval_is_bounded_and_observe_only(self):
         for value in [-1,6,True,float('nan')]:

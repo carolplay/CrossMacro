@@ -29,6 +29,61 @@ applications/capabilities are declined. No thread identity or grant is synthesiz
 `guard_command` returns an `active` executor field; a non-null value blocks startup.
 Coordinate the app separately: advisory locks alone do not reserve it from others.
 
+### Previously validated window sizes
+
+Executor 0.4.1 optionally accepts `validated_viewport_profiles` in the private
+configuration. Each entry is a complete fixed `viewport_calibration` plus a
+nonempty `validated_anchors` evidence list and an `entry_condition` using the
+normal OCR/image condition format. At the first successful observation only,
+an exact native-size match may be selected after the entry condition passes on
+the normalized frame. This supports returning to a previously validated size
+without manually resizing the app. It does not resize the OS window, infer a
+new scale, ignore identity checks, or grant permissions.
+
+The selected profile is frozen for that backend's lifetime. Unknown dimensions,
+ambiguous profiles, wrong entry pages, and later dimension changes still stop
+input. The observation hash and `*-viewport-preflight.json` record the selection; pixels are temporary.
+Leave the option absent to retain strict single-size behavior. A new size needs
+an explicit calibration and live anchor verification before registration.
+
+Executor 0.4.2 additionally tolerates transient invalid screenshot bytes with
+at most two extra original-image reads from the same documented API. No input
+is sent while the image is invalid. Only the frozen expected size (or an exact
+validated startup profile with its entry condition) can resume execution.
+Persistent mismatches still fail; permission/transport errors propagate without
+retry or backend failover. Invalid dimensions and a successful recovery event
+are recorded as metadata; original pixels are temporary. This does not fix `noWindowsAvailable` on input.
+
+Executor 0.4.3 applies the same bounded read-only recovery to almost entirely
+white frames, even when their dimensions match. Each RGB channel must have
+at least 97% near-white pixels to trigger the quality check. A genuine white
+transition also needs to settle before execution can continue. These frames
+are never treated as valid page evidence or scaled into a usable observation;
+persistent white frames stop before OCR or input. Live replay remains separate
+from the offline tests.
+
+Executor 0.4.4 obtains recovery bytes from the documented atomic
+`getAXStateAndScreenshot({emit:false})` result. This refreshes state and pixels
+together and avoids relying on an emitted image content block. Four read-only
+captures returned the calibrated size during diagnosis; continuous replay still
+requires separate evidence. Retry bounds and permission-error behavior remain
+the same. No CUA identity or approval metadata is supplied.
+
+Executor 0.4.5 permits one fresh atomic observation when the host explicitly
+reports `ENOENT` for its own `com.openai.sky.CUAService/...Screenshot ...`
+temporary image. The original failure is retained. Missing unrelated files,
+`noWindowsAvailable`, permission errors, and a failed recovery still propagate;
+this never retries an input or changes an approval.
+
+Executor 0.4.6 adds opt-in `prefer_frame_ocr: true` alongside `crop_ocr: true`
+for regional text predicates. It first accepts exactly one fresh full-frame
+OCR line whose center is inside the declared region, confidence meets the
+existing threshold, and complete normalized text matches the existing pattern.
+Otherwise it uses the existing same-image crop and cache. It never substitutes
+text from another region or an older frame. Existing predicates keep their
+previous behavior unless they opt in; this avoids re-OCRing an already correct
+label when cropping itself makes recognition worse.
+
 ## Workflow sources and editor
 
 Production WOS workflows moved to
@@ -99,6 +154,11 @@ repeat attempts after uncertain outcomes. Keep ledgers outside Git.
 
 Integer inventory reads retry only the same calibrated image crop when full-frame
 OCR is missing or ambiguous; an unreadable or ambiguous crop still stops input.
+Since0.4.12, `remember_numbers`, `unchanged_numbers`, and `increased_numbers`
+may explicitly set `crop_ocr: true` to read the same calibrated pixels in
+isolation even when full-frame OCR found a plausible integer (for example, a
+missing leading digit). Defaults remain unchanged; exact equality/delta and
+confidence checks still apply, and no new screenshot or business input is sent.
 Steps may declare `budget_checks` with `bounds`, `min`, and `max_config`. The
 selected integer must be within the configured local cap before input; a missing,
 invalid or exceeded cap fails closed. This is a generic configuration guard;
@@ -171,6 +231,6 @@ Repeated navigation keys now fetch fresh window state after each gesture.
 
 ### Explicit fixed viewport calibration (suite 0.3.0)
 
-Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw pixels are retained beside a canonical OCR image; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
+Optional machine-local `viewport_calibration` declares an id, `reference_size`, `native_size` and fixed `titlebar_height`. Capture must match that exact native size. Raw and canonical pixels live only in a bounded two-observation temporary store, including crop caches, and are removed on backend close. OCR and observation hashes remain in structured logs; resolved reference clicks are mapped back to native coordinates and both are logged. Only small, near-uniform content scaling is accepted. Validate page anchors and an identity roundtrip before enabling a calibration. A further resize remains fatal; this never dynamically accepts arbitrary window geometry. Invalid image responses get at most one read-only original-pixel request before failing. The input backend remains CUA, not a native permission-independent implementation.
 
 Observation steps may set `observe_interval_seconds` (0–5 seconds) to space failed-condition retries, within the existing `observe_attempts` and workflow deadline. The default stays zero. This supports waiting for an external game state without busy screenshot polling or repeating input; it does not retry failed input calls.

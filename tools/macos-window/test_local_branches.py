@@ -3,6 +3,16 @@ import json,tempfile,unittest
 from unittest.mock import Mock,patch
 import window_macro as macro
 class LocalBranchesTests(unittest.TestCase):
+    def test_unsupported_when_guard_is_rejected_before_backend_input(self):
+        flow={'reference_size':[100,100],'steps':[
+            {'name':'guarded','action':'click','point':[10,10],
+             'before':['SHOP'],'after':['DONE'],'when':['FREE']}]}
+        client=Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError,'Unsupported step guard when'):
+                macro.execute({'log_dir':directory},flow,'all',backend=client)
+        client.observe.assert_not_called()
+        client.js.assert_not_called()
     def test_skipped_branch_has_no_observations_or_inputs_and_next_branch_is_fresh(self):
         flow={'reference_size':[100,100],'steps':[
             {'name':'choose','action':'click','point':[10,10],'before':['READY'],'after':['DONE'],'skip_if':['EMPTY']},

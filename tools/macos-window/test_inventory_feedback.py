@@ -5,6 +5,40 @@ from unittest.mock import Mock
 import window_macro as macro
 
 class InventoryFeedbackTests(unittest.TestCase):
+    def test_explicit_crop_corrects_plausible_wrong_full_frame_number(self):
+        bounds=[0,0,80,50]
+        obs=self.observation('12,345',.3)
+        obs.ocr_config={'binary':'unused','language':'en-US'}
+        obs.timer_regions[('inventory',*bounds)]=[
+            {'text':'812,345','confidence':.3}]
+        self.assertEqual(12345,macro.number_in_region(obs,bounds,.3))
+        self.assertEqual(812345,macro.number_in_region(obs,bounds,.3,crop_ocr=True))
+        obs.timer_regions[('inventory',*bounds)]*=2
+        with self.assertRaises(RuntimeError):
+            macro.number_in_region(obs,bounds,.3,crop_ocr=True)
+
+    def test_crop_option_preserves_exact_unchanged_inventory_assertion(self):
+        region={'name':'gems','bounds':[0,0,80,50],'min_confidence':.3,'crop_ocr':True}
+        flow={'reference_size':[100,100],'steps':[
+            {'name':'baseline','action':'observe','before':['PAGE'],'remember_numbers':[region]},
+            {'name':'check','action':'observe','before':['PAGE'],'unchanged_numbers':[region]}]}
+        def saved(cropped):
+            obs=self.observation('12,345',.3)
+            obs.ocr_config={'binary':'unused','language':'en-US'}
+            obs.timer_regions[('inventory',0,0,80,50)]=[{'text':str(cropped),'confidence':.3}]
+            return obs
+        for value in (812345,812344):
+            with self.subTest(value=value),tempfile.TemporaryDirectory() as directory:
+                client=Mock();client.observe.side_effect=[saved(812345),saved(value)]
+                if value==812345:macro.execute({'log_dir':directory},flow,'all',backend=client)
+                else:
+                    with self.assertRaisesRegex(macro.FatalExecutionError,'Inventory changed'):
+                        macro.execute({'log_dir':directory},flow,'all',backend=client)
+                client.js.assert_not_called()
+        broken=__import__('copy').deepcopy(flow)
+        broken['steps'][0]['remember_numbers'][0]['crop_ocr']='yes'
+        with self.assertRaises(ValueError):macro.validate_workflow(broken)
+
     def observation(self, value, confidence=1):
         return macro.Observation('PAGE','unused',{'width':100,'height':100,'lines':[
             {'text':str(value),'confidence':confidence,'bounds':[.1,.1,.4,.2]}]})

@@ -11,7 +11,7 @@ def check(paths, expected_steps=()):
     for path,report in reports:
         observed.extend(s['name'] for s in report.get('steps',[]))
         if report.get('status')!='passed':
-            issues.append({'type':'execution_failure','step':report.get('step'),'report':str(path),'reason':report.get('error','Missing success evidence')})
+            issues.append({'type':'execution_failure','step':(report.get('failed_step') or {}).get('name',report.get('step')),'report':str(path),'reason':report.get('error','Missing success evidence')})
         screens+=sum(1 for p in path.parent.iterdir() if p.suffix in ('.jpg','.png'))
         ocr+=len(list(path.parent.rglob('*-ocr.json')))
         for step in report.get('steps',[]):
@@ -31,7 +31,7 @@ def check(paths, expected_steps=()):
                 else:
                     issues.append(warning)
         if report.get('audio_capture') and not report['audio_capture'].get('usable_audio'):
-            issues.append({'type':'audio_unavailable','step':report.get('step'),'report':str(path),'reason':'No usable target-app audio; keep visual verification'})
+            issues.append({'type':'audio_unavailable','step':(report.get('failed_step') or {}).get('name',report.get('step')),'report':str(path),'reason':'No usable target-app audio; keep visual verification'})
     for name in expected_steps:
         if name not in observed:issues.append({'type':'missing_step','step':name,'reason':'Not observed in this run'})
     return {'status':'needs_review' if issues else 'checked','issues':issues,
