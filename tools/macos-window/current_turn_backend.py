@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from window_macro import CuaMcp, FatalExecutionError, WorkflowBudgetExceeded
 
-BRIDGE_VERSION = '0.1.1'
+BRIDGE_VERSION = '0.1.2'
 
 
 class CurrentTurnBackend(CuaMcp):

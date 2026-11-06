@@ -3,11 +3,11 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-export async function pump({root, app, appPath, allowedRoot, milliseconds = 12000}) {
+export async function pump({root, app, appPath, allowedRoot, milliseconds = 45000}) {
   root = path.resolve(root);
   if (typeof allowedRoot !== 'string' || !root.startsWith(path.resolve(allowedRoot) + path.sep)) throw Error('Explicit private bridge parent required');
   if ((await fs.lstat(root)).isSymbolicLink()) throw Error('Symlink bridge rejected');
-  const end = Date.now() + Math.min(milliseconds, 15000);
+  const end = Date.now() + Math.min(milliseconds, 45000);
   const operations = [];
   const atomic = async (name, value) => {
     const dest = path.join(root, name);
